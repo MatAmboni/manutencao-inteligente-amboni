@@ -39,11 +39,26 @@ interface Equipment {
   type: "Elétrico" | "Mecânico";
 }
 
+interface ServiceOrder {
+  id: string;
+  equipment: string;
+  description: string;
+  status: "Pendente" | "Em Andamento" | "Concluída";
+  priority: "Baixa" | "Média" | "Alta";
+  sector: "Elétrico" | "Mecânico";
+  executionTeam: "Interna" | "Externa";
+  requestDate: string;
+  suggestedDeadline: string;
+  requester: string;
+  createdAt: string;
+}
+
 interface ServiceOrderDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   equipment: Equipment[];
   requesters: string[];
+  order?: ServiceOrder;
   onSave: (order: {
     equipment: string;
     description: string;
@@ -57,14 +72,15 @@ interface ServiceOrderDialogProps {
   }) => void;
 }
 
-const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, onSave }: ServiceOrderDialogProps) => {
+const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, order, onSave }: ServiceOrderDialogProps) => {
   const { toast } = useToast();
   const [formData, setFormData] = useState({
     equipment: "",
     description: "",
-    priority: "",
-    sector: "",
-    executionTeam: "",
+    status: "Pendente" as "Pendente" | "Em Andamento" | "Concluída",
+    priority: "Média" as "Baixa" | "Média" | "Alta",
+    sector: "Elétrico" as "Elétrico" | "Mecânico",
+    executionTeam: "Interna" as "Interna" | "Externa",
     requestDate: new Date().toISOString().split("T")[0],
     suggestedDeadline: "",
     requester: "",
@@ -76,6 +92,34 @@ const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, onSave 
   useEffect(() => {
     setAvailableRequesters(requesters);
   }, [requesters]);
+
+  useEffect(() => {
+    if (order && open) {
+      setFormData({
+        equipment: order.equipment,
+        description: order.description,
+        status: order.status,
+        priority: order.priority,
+        sector: order.sector,
+        executionTeam: order.executionTeam,
+        requestDate: order.requestDate,
+        suggestedDeadline: order.suggestedDeadline,
+        requester: order.requester,
+      });
+    } else if (!open) {
+      setFormData({
+        equipment: "",
+        description: "",
+        status: "Pendente",
+        priority: "Média",
+        sector: "Elétrico",
+        executionTeam: "Interna",
+        requestDate: new Date().toISOString().split('T')[0],
+        suggestedDeadline: "",
+        requester: "",
+      });
+    }
+  }, [order, open]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,13 +136,13 @@ const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, onSave 
     onSave({
       equipment: formData.equipment,
       description: formData.description,
-      priority: formData.priority as "Baixa" | "Média" | "Alta",
-      sector: formData.sector as "Elétrico" | "Mecânico",
-      executionTeam: formData.executionTeam as "Interna" | "Externa",
+      priority: formData.priority,
+      sector: formData.sector,
+      executionTeam: formData.executionTeam,
       requestDate: formData.requestDate,
       suggestedDeadline: formData.suggestedDeadline,
       requester: formData.requester,
-      status: "Pendente",
+      status: formData.status,
     });
 
     toast({
@@ -110,9 +154,10 @@ const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, onSave 
     setFormData({
       equipment: "",
       description: "",
-      priority: "",
-      sector: "",
-      executionTeam: "",
+      status: "Pendente",
+      priority: "Média",
+      sector: "Elétrico",
+      executionTeam: "Interna",
       requestDate: new Date().toISOString().split("T")[0],
       suggestedDeadline: "",
       requester: "",
@@ -151,7 +196,7 @@ const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, onSave 
                 setFormData({ 
                   ...formData, 
                   equipment: value,
-                  sector: selectedEquipment?.type || ""
+                  sector: (selectedEquipment?.type || "Elétrico") as "Elétrico" | "Mecânico"
                 });
               }}
             >
@@ -173,7 +218,7 @@ const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, onSave 
             <Select
               value={formData.sector}
               onValueChange={(value) =>
-                setFormData({ ...formData, sector: value })
+                setFormData({ ...formData, sector: value as "Elétrico" | "Mecânico" })
               }
             >
               <SelectTrigger>
@@ -191,7 +236,7 @@ const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, onSave 
             <Select
               value={formData.executionTeam}
               onValueChange={(value) =>
-                setFormData({ ...formData, executionTeam: value })
+                setFormData({ ...formData, executionTeam: value as "Interna" | "Externa" })
               }
             >
               <SelectTrigger>
@@ -209,7 +254,7 @@ const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, onSave 
             <Select
               value={formData.priority}
               onValueChange={(value) =>
-                setFormData({ ...formData, priority: value })
+                setFormData({ ...formData, priority: value as "Baixa" | "Média" | "Alta" })
               }
             >
               <SelectTrigger>
