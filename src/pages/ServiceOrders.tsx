@@ -5,6 +5,14 @@ import { Badge } from "@/components/ui/badge";
 import { Plus } from "lucide-react";
 import ServiceOrderDialog from "@/components/ServiceOrderDialog";
 
+interface Equipment {
+  id: string;
+  name: string;
+  type: "Elétrico" | "Mecânico";
+  status: "Operacional" | "Manutenção" | "Inativo";
+  location: string;
+}
+
 interface ServiceOrder {
   id: string;
   equipment: string;
@@ -12,12 +20,16 @@ interface ServiceOrder {
   status: "Pendente" | "Em Andamento" | "Concluída";
   priority: "Baixa" | "Média" | "Alta";
   sector: "Elétrico" | "Mecânico";
+  executionTeam: "Interna" | "Externa";
+  requestDate: string;
+  suggestedDeadline: string;
+  requester: string;
   createdAt: string;
 }
 
 const ServiceOrders = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [orders] = useState<ServiceOrder[]>([
+  const [orders, setOrders] = useState<ServiceOrder[]>([
     {
       id: "OS-001",
       equipment: "Compressor 01",
@@ -25,6 +37,10 @@ const ServiceOrders = () => {
       status: "Em Andamento",
       priority: "Alta",
       sector: "Mecânico",
+      executionTeam: "Interna",
+      requestDate: "2024-01-15",
+      suggestedDeadline: "2024-01-20",
+      requester: "João Silva",
       createdAt: "2024-01-15",
     },
     {
@@ -34,6 +50,10 @@ const ServiceOrders = () => {
       status: "Pendente",
       priority: "Média",
       sector: "Elétrico",
+      executionTeam: "Externa",
+      requestDate: "2024-01-14",
+      suggestedDeadline: "2024-01-18",
+      requester: "Maria Santos",
       createdAt: "2024-01-14",
     },
     {
@@ -43,9 +63,62 @@ const ServiceOrders = () => {
       status: "Em Andamento",
       priority: "Alta",
       sector: "Elétrico",
+      executionTeam: "Interna",
+      requestDate: "2024-01-13",
+      suggestedDeadline: "2024-01-17",
+      requester: "Carlos Oliveira",
       createdAt: "2024-01-13",
     },
   ]);
+
+  const [equipment] = useState<Equipment[]>([
+    {
+      id: "EQ-001",
+      name: "Compressor 01",
+      type: "Mecânico",
+      status: "Manutenção",
+      location: "Setor A - Linha 1",
+    },
+    {
+      id: "EQ-002",
+      name: "Motor Elétrico 03",
+      type: "Elétrico",
+      status: "Operacional",
+      location: "Setor B - Linha 2",
+    },
+    {
+      id: "EQ-003",
+      name: "Painel de Controle",
+      type: "Elétrico",
+      status: "Operacional",
+      location: "Sala de Controle",
+    },
+    {
+      id: "EQ-004",
+      name: "Válvula de Pressão 5",
+      type: "Mecânico",
+      status: "Operacional",
+      location: "Setor C - Linha 3",
+    },
+  ]);
+
+  const [requesters] = useState<string[]>([
+    "João Silva",
+    "Maria Santos",
+    "Carlos Oliveira",
+    "Ana Costa",
+    "Pedro Almeida",
+  ]);
+
+  const handleAddOrder = (newOrder: Omit<ServiceOrder, "id" | "createdAt">) => {
+    const orderNumber = orders.length + 1;
+    const order: ServiceOrder = {
+      ...newOrder,
+      id: `OS-${orderNumber.toString().padStart(3, "0")}`,
+      createdAt: new Date().toISOString().split("T")[0],
+    };
+    setOrders([order, ...orders]);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -111,17 +184,27 @@ const ServiceOrders = () => {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-foreground mb-3">{order.description}</p>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                 <span>Setor: {order.sector}</span>
                 <span>•</span>
-                <span>Criado em: {new Date(order.createdAt).toLocaleDateString('pt-BR')}</span>
+                <span>Equipe: {order.executionTeam}</span>
+                <span>•</span>
+                <span>Solicitante: {order.requester}</span>
+                <span>•</span>
+                <span>Prazo: {new Date(order.suggestedDeadline).toLocaleDateString('pt-BR')}</span>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      <ServiceOrderDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+      <ServiceOrderDialog 
+        open={dialogOpen} 
+        onOpenChange={setDialogOpen}
+        equipment={equipment}
+        requesters={requesters}
+        onSave={handleAddOrder}
+      />
     </div>
   );
 };

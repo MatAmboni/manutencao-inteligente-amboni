@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -17,30 +17,119 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+interface Equipment {
+  id: string;
+  name: string;
+  type: "Elétrico" | "Mecânico";
+}
 
 interface ServiceOrderDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  equipment: Equipment[];
+  requesters: string[];
+  onSave: (order: {
+    equipment: string;
+    description: string;
+    priority: "Baixa" | "Média" | "Alta";
+    sector: "Elétrico" | "Mecânico";
+    executionTeam: "Interna" | "Externa";
+    requestDate: string;
+    suggestedDeadline: string;
+    requester: string;
+    status: "Pendente" | "Em Andamento" | "Concluída";
+  }) => void;
 }
 
-const ServiceOrderDialog = ({ open, onOpenChange }: ServiceOrderDialogProps) => {
+const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, onSave }: ServiceOrderDialogProps) => {
   const { toast } = useToast();
   const [formData, setFormData] = useState({
     equipment: "",
     description: "",
     priority: "",
     sector: "",
+    executionTeam: "",
+    requestDate: new Date().toISOString().split("T")[0],
+    suggestedDeadline: "",
+    requester: "",
   });
+  const [requesterOpen, setRequesterOpen] = useState(false);
+  const [availableRequesters, setAvailableRequesters] = useState<string[]>(requesters);
+  const [newRequester, setNewRequester] = useState("");
+
+  useEffect(() => {
+    setAvailableRequesters(requesters);
+  }, [requesters]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!formData.equipment || !formData.priority || !formData.sector || !formData.executionTeam || !formData.requester || !formData.suggestedDeadline) {
+      toast({
+        title: "Erro",
+        description: "Por favor, preencha todos os campos obrigatórios.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    onSave({
+      equipment: formData.equipment,
+      description: formData.description,
+      priority: formData.priority as "Baixa" | "Média" | "Alta",
+      sector: formData.sector as "Elétrico" | "Mecânico",
+      executionTeam: formData.executionTeam as "Interna" | "Externa",
+      requestDate: formData.requestDate,
+      suggestedDeadline: formData.suggestedDeadline,
+      requester: formData.requester,
+      status: "Pendente",
+    });
+
     toast({
       title: "Ordem de Serviço Criada",
       description: "A ordem foi registrada com sucesso.",
     });
+    
     onOpenChange(false);
-    setFormData({ equipment: "", description: "", priority: "", sector: "" });
+    setFormData({
+      equipment: "",
+      description: "",
+      priority: "",
+      sector: "",
+      executionTeam: "",
+      requestDate: new Date().toISOString().split("T")[0],
+      suggestedDeadline: "",
+      requester: "",
+    });
+  };
+
+  const handleRequesterSelect = (requester: string) => {
+    if (requester === "add-new" && newRequester.trim()) {
+      if (!availableRequesters.includes(newRequester.trim())) {
+        setAvailableRequesters([...availableRequesters, newRequester.trim()]);
+      }
+      setFormData({ ...formData, requester: newRequester.trim() });
+      setNewRequester("");
+    } else {
+      setFormData({ ...formData, requester });
+    }
+    setRequesterOpen(false);
   };
 
   return (
@@ -54,27 +143,33 @@ const ServiceOrderDialog = ({ open, onOpenChange }: ServiceOrderDialogProps) => 
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="equipment">Equipamento</Label>
+            <Label htmlFor="equipment">Equipamento *</Label>
             <Select
               value={formData.equipment}
-              onValueChange={(value) =>
-                setFormData({ ...formData, equipment: value })
-              }
+              onValueChange={(value) => {
+                const selectedEquipment = equipment.find(eq => eq.name === value);
+                setFormData({ 
+                  ...formData, 
+                  equipment: value,
+                  sector: selectedEquipment?.type || ""
+                });
+              }}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione o equipamento" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="compressor-01">Compressor 01</SelectItem>
-                <SelectItem value="motor-03">Motor Elétrico 03</SelectItem>
-                <SelectItem value="painel-controle">Painel de Controle</SelectItem>
-                <SelectItem value="valvula-05">Válvula de Pressão 5</SelectItem>
+                {equipment.map((eq) => (
+                  <SelectItem key={eq.id} value={eq.name}>
+                    {eq.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="sector">Setor</Label>
+            <Label htmlFor="sector">Setor *</Label>
             <Select
               value={formData.sector}
               onValueChange={(value) =>
@@ -85,14 +180,32 @@ const ServiceOrderDialog = ({ open, onOpenChange }: ServiceOrderDialogProps) => 
                 <SelectValue placeholder="Selecione o setor" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="eletrico">Elétrico</SelectItem>
-                <SelectItem value="mecanico">Mecânico</SelectItem>
+                <SelectItem value="Elétrico">Elétrico</SelectItem>
+                <SelectItem value="Mecânico">Mecânico</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="priority">Prioridade</Label>
+            <Label htmlFor="executionTeam">Equipe Executora *</Label>
+            <Select
+              value={formData.executionTeam}
+              onValueChange={(value) =>
+                setFormData({ ...formData, executionTeam: value })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione a equipe" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Interna">Interna</SelectItem>
+                <SelectItem value="Externa">Externa</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="priority">Prioridade *</Label>
             <Select
               value={formData.priority}
               onValueChange={(value) =>
@@ -103,11 +216,92 @@ const ServiceOrderDialog = ({ open, onOpenChange }: ServiceOrderDialogProps) => 
                 <SelectValue placeholder="Selecione a prioridade" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="baixa">Baixa</SelectItem>
-                <SelectItem value="media">Média</SelectItem>
-                <SelectItem value="alta">Alta</SelectItem>
+                <SelectItem value="Baixa">Baixa</SelectItem>
+                <SelectItem value="Média">Média</SelectItem>
+                <SelectItem value="Alta">Alta</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="requestDate">Data da Solicitação *</Label>
+              <Input
+                id="requestDate"
+                type="date"
+                value={formData.requestDate}
+                onChange={(e) =>
+                  setFormData({ ...formData, requestDate: e.target.value })
+                }
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="suggestedDeadline">Prazo Sugerido *</Label>
+              <Input
+                id="suggestedDeadline"
+                type="date"
+                value={formData.suggestedDeadline}
+                onChange={(e) =>
+                  setFormData({ ...formData, suggestedDeadline: e.target.value })
+                }
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="requester">Solicitante *</Label>
+            <Popover open={requesterOpen} onOpenChange={setRequesterOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={requesterOpen}
+                  className="w-full justify-between"
+                >
+                  {formData.requester || "Selecione o solicitante"}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-full p-0">
+                <Command>
+                  <CommandInput 
+                    placeholder="Buscar ou adicionar solicitante..." 
+                    value={newRequester}
+                    onValueChange={setNewRequester}
+                  />
+                  <CommandEmpty>
+                    <div className="p-2">
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start"
+                        onClick={() => handleRequesterSelect("add-new")}
+                      >
+                        <Check className="mr-2 h-4 w-4 opacity-0" />
+                        Adicionar "{newRequester}"
+                      </Button>
+                    </div>
+                  </CommandEmpty>
+                  <CommandGroup>
+                    {availableRequesters.map((requester) => (
+                      <CommandItem
+                        key={requester}
+                        value={requester}
+                        onSelect={() => handleRequesterSelect(requester)}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            formData.requester === requester ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        {requester}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
 
           <div className="space-y-2">
