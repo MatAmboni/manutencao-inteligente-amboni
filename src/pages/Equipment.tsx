@@ -3,8 +3,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Filter, Edit2, Trash2, Calendar, MapPin, Building2 } from "lucide-react";
+import { Plus, Search, Filter, Edit2, Trash2, Calendar, MapPin, Building2, FileDown, FileSpreadsheet } from "lucide-react";
 import EquipmentDialog from "@/components/EquipmentDialog";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 import {
   Table,
   TableBody,
@@ -206,6 +209,67 @@ const Equipment = () => {
     setEditingEquipment(null);
   };
 
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    
+    doc.setFontSize(18);
+    doc.text("Relatório de Equipamentos", 14, 20);
+    
+    doc.setFontSize(11);
+    doc.text(`Data de Geração: ${new Date().toLocaleDateString("pt-BR")}`, 14, 30);
+    
+    const tableData = filteredEquipment.map(eq => [
+      eq.id,
+      eq.name,
+      eq.type,
+      eq.status,
+      eq.location,
+      eq.manufacturer || "-",
+      eq.model || "-",
+      eq.serialNumber || "-",
+      new Date(eq.lastMaintenance).toLocaleDateString("pt-BR"),
+    ]);
+    
+    autoTable(doc, {
+      head: [["ID", "Nome", "Tipo", "Status", "Localização", "Fabricante", "Modelo", "N° Série", "Última Manutenção"]],
+      body: tableData,
+      startY: 40,
+      styles: { fontSize: 7 },
+      headStyles: { fillColor: [34, 197, 94] },
+    });
+    
+    doc.save(`equipamentos-${new Date().toISOString().split("T")[0]}.pdf`);
+    toast({
+      title: "PDF exportado",
+      description: "Relatório de equipamentos exportado com sucesso",
+    });
+  };
+
+  const exportToExcel = () => {
+    const excelData = filteredEquipment.map(eq => ({
+      ID: eq.id,
+      Nome: eq.name,
+      Tipo: eq.type,
+      Status: eq.status,
+      Localização: eq.location,
+      Fabricante: eq.manufacturer || "-",
+      Modelo: eq.model || "-",
+      "Número de Série": eq.serialNumber || "-",
+      "Data de Instalação": eq.installDate ? new Date(eq.installDate).toLocaleDateString("pt-BR") : "-",
+      "Última Manutenção": new Date(eq.lastMaintenance).toLocaleDateString("pt-BR"),
+    }));
+    
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Equipamentos");
+    
+    XLSX.writeFile(wb, `equipamentos-${new Date().toISOString().split("T")[0]}.xlsx`);
+    toast({
+      title: "Excel exportado",
+      description: "Relatório de equipamentos exportado com sucesso",
+    });
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "Operacional":
@@ -228,10 +292,20 @@ const Equipment = () => {
             Gerencie os equipamentos da planta
           </p>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Novo Equipamento
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={exportToPDF}>
+            <FileDown className="mr-2 h-4 w-4" />
+            PDF
+          </Button>
+          <Button variant="outline" onClick={exportToExcel}>
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Excel
+          </Button>
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Novo Equipamento
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
