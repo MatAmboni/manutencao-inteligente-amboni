@@ -1,6 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Zap, Wrench } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AlertTriangle, Zap, Wrench, FileDown, FileSpreadsheet } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 
 interface Risk {
   id: string;
@@ -13,6 +18,7 @@ interface Risk {
 }
 
 const RiskAnalysis = () => {
+  const { toast } = useToast();
   const risks: Risk[] = [
     {
       id: "R-001",
@@ -74,13 +80,85 @@ const RiskAnalysis = () => {
     { label: "Riscos Baixos", value: risks.filter(r => r.riskLevel === "Baixo").length, color: "text-success" },
   ];
 
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    
+    doc.setFontSize(18);
+    doc.text("Relatório de Análise de Riscos", 14, 20);
+    
+    doc.setFontSize(11);
+    doc.text(`Data de Geração: ${new Date().toLocaleDateString("pt-BR")}`, 14, 30);
+    
+    const tableData = risks.map(risk => [
+      risk.id,
+      risk.equipment,
+      risk.type,
+      risk.riskLevel,
+      new Date(risk.identifiedAt).toLocaleDateString("pt-BR"),
+      risk.description,
+      risk.recommendation,
+    ]);
+    
+    autoTable(doc, {
+      head: [["ID", "Equipamento", "Tipo", "Nível", "Identificado em", "Descrição", "Recomendação"]],
+      body: tableData,
+      startY: 40,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [220, 38, 38] },
+      columnStyles: {
+        5: { cellWidth: 40 },
+        6: { cellWidth: 40 },
+      },
+    });
+    
+    doc.save(`analise-riscos-${new Date().toISOString().split("T")[0]}.pdf`);
+    toast({
+      title: "PDF exportado",
+      description: "Relatório de análise de riscos exportado com sucesso",
+    });
+  };
+
+  const exportToExcel = () => {
+    const excelData = risks.map(risk => ({
+      ID: risk.id,
+      Equipamento: risk.equipment,
+      Tipo: risk.type,
+      "Nível de Risco": risk.riskLevel,
+      "Identificado em": new Date(risk.identifiedAt).toLocaleDateString("pt-BR"),
+      Descrição: risk.description,
+      Recomendação: risk.recommendation,
+    }));
+    
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Análise de Riscos");
+    
+    XLSX.writeFile(wb, `analise-riscos-${new Date().toISOString().split("T")[0]}.xlsx`);
+    toast({
+      title: "Excel exportado",
+      description: "Relatório de análise de riscos exportado com sucesso",
+    });
+  };
+
   return (
     <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Análise de Riscos</h1>
-        <p className="text-muted-foreground mt-1">
-          Monitoramento de riscos elétricos e mecânicos
-        </p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Análise de Riscos</h1>
+          <p className="text-muted-foreground mt-1">
+            Monitoramento de riscos elétricos e mecânicos
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={exportToPDF}>
+            <FileDown className="mr-2 h-4 w-4" />
+            PDF
+          </Button>
+          <Button variant="outline" onClick={exportToExcel}>
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Excel
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">

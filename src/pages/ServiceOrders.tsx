@@ -5,10 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Search, Edit2, Trash2, Clock, AlertCircle, CheckCircle2, ListChecks, BarChart3, TrendingUp } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, Clock, AlertCircle, CheckCircle2, ListChecks, BarChart3, TrendingUp, FileDown, FileSpreadsheet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ServiceOrderDialog from "@/components/ServiceOrderDialog";
 import { BarChart, Bar, PieChart, Pie, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 
 interface Equipment {
   id: string;
@@ -212,6 +215,67 @@ const ServiceOrders = () => {
     setEditingOrder(undefined);
   };
 
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    
+    doc.setFontSize(18);
+    doc.text("Relatório de Ordens de Serviço", 14, 20);
+    
+    doc.setFontSize(11);
+    doc.text(`Data de Geração: ${new Date().toLocaleDateString("pt-BR")}`, 14, 30);
+    
+    const tableData = filteredOrders.map(order => [
+      order.id,
+      order.equipment,
+      order.sector,
+      order.priority,
+      order.status,
+      order.executionTeam,
+      order.requester,
+      new Date(order.requestDate).toLocaleDateString("pt-BR"),
+      order.suggestedDeadline ? new Date(order.suggestedDeadline).toLocaleDateString("pt-BR") : "-",
+    ]);
+    
+    autoTable(doc, {
+      head: [["ID", "Equipamento", "Setor", "Prioridade", "Status", "Equipe", "Solicitante", "Data Solicitação", "Prazo"]],
+      body: tableData,
+      startY: 40,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [79, 70, 229] },
+    });
+    
+    doc.save(`ordens-servico-${new Date().toISOString().split("T")[0]}.pdf`);
+    toast({
+      title: "PDF exportado",
+      description: "Relatório de ordens de serviço exportado com sucesso",
+    });
+  };
+
+  const exportToExcel = () => {
+    const excelData = filteredOrders.map(order => ({
+      ID: order.id,
+      Equipamento: order.equipment,
+      Setor: order.sector,
+      Prioridade: order.priority,
+      Status: order.status,
+      "Equipe Executora": order.executionTeam,
+      Solicitante: order.requester,
+      "Data Solicitação": new Date(order.requestDate).toLocaleDateString("pt-BR"),
+      "Prazo Sugerido": order.suggestedDeadline ? new Date(order.suggestedDeadline).toLocaleDateString("pt-BR") : "-",
+      Descrição: order.description,
+    }));
+    
+    const ws = XLSX.utils.json_to_sheet(excelData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Ordens de Serviço");
+    
+    XLSX.writeFile(wb, `ordens-servico-${new Date().toISOString().split("T")[0]}.xlsx`);
+    toast({
+      title: "Excel exportado",
+      description: "Relatório de ordens de serviço exportado com sucesso",
+    });
+  };
+
   const filteredOrders = orders.filter(order => {
     const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          order.equipment.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -315,10 +379,20 @@ const ServiceOrders = () => {
             Gerencie as ordens de manutenção
           </p>
         </div>
-        <Button onClick={() => setDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Nova Ordem
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={exportToPDF}>
+            <FileDown className="mr-2 h-4 w-4" />
+            PDF
+          </Button>
+          <Button variant="outline" onClick={exportToExcel}>
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Excel
+          </Button>
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Nova Ordem
+          </Button>
+        </div>
       </div>
 
       {/* Estatísticas */}
