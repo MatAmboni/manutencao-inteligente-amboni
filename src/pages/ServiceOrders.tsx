@@ -5,10 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Search, Edit2, Trash2, Clock, AlertCircle, CheckCircle2, ListChecks, BarChart3, TrendingUp, FileDown, FileSpreadsheet } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, Clock, AlertCircle, CheckCircle2, ListChecks, FileDown, FileSpreadsheet } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ServiceOrderDialog from "@/components/ServiceOrderDialog";
-import { BarChart, Bar, PieChart, Pie, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -292,53 +291,6 @@ const ServiceOrders = () => {
     completed: orders.filter(o => o.status === "Concluída").length,
   };
 
-  // Cálculo do tempo médio de conclusão
-  const completedOrders = orders.filter(o => o.status === "Concluída" && o.completedAt);
-  const averageCompletionTime = completedOrders.length > 0
-    ? completedOrders.reduce((acc, order) => {
-        const start = new Date(order.createdAt).getTime();
-        const end = new Date(order.completedAt!).getTime();
-        const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-        return acc + days;
-      }, 0) / completedOrders.length
-    : 0;
-
-  // Dados para gráfico de prioridade
-  const priorityData = [
-    { name: "Alta", value: orders.filter(o => o.priority === "Alta").length, fill: "hsl(var(--destructive))" },
-    { name: "Média", value: orders.filter(o => o.priority === "Média").length, fill: "hsl(var(--warning))" },
-    { name: "Baixa", value: orders.filter(o => o.priority === "Baixa").length, fill: "hsl(var(--success))" },
-  ];
-
-  // Dados para gráfico de status
-  const statusData = [
-    { name: "Pendente", value: stats.pending, fill: "hsl(var(--warning))" },
-    { name: "Em Andamento", value: stats.inProgress, fill: "hsl(var(--primary))" },
-    { name: "Concluída", value: stats.completed, fill: "hsl(var(--success))" },
-  ];
-
-  // Dados para gráfico de tempo (últimos 7 dias)
-  const timelineData = (() => {
-    const data: { [key: string]: { date: string; pendente: number; andamento: number; concluida: number } } = {};
-    
-    orders.forEach(order => {
-      const date = new Date(order.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-      if (!data[date]) {
-        data[date] = { date, pendente: 0, andamento: 0, concluida: 0 };
-      }
-      
-      if (order.status === "Pendente") data[date].pendente++;
-      else if (order.status === "Em Andamento") data[date].andamento++;
-      else if (order.status === "Concluída") data[date].concluida++;
-    });
-
-    return Object.values(data).sort((a, b) => {
-      const [dayA, monthA] = a.date.split('/').map(Number);
-      const [dayB, monthB] = b.date.split('/').map(Number);
-      return monthA === monthB ? dayA - dayB : monthA - monthB;
-    });
-  })();
-
   const maintenanceHistory = orders
     .filter(o => o.status === "Concluída")
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -431,127 +383,6 @@ const ServiceOrders = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.completed}</div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Relatórios e Gráficos */}
-      <div className="grid gap-4 md:grid-cols-2">
-        {/* Tempo Médio de Conclusão */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Tempo Médio de Conclusão</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-primary">
-              {averageCompletionTime.toFixed(1)} dias
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Baseado em {completedOrders.length} ordens concluídas
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Gráfico de Prioridades */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Distribuição por Prioridade</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie
-                  data={priorityData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, value }) => `${name}: ${value}`}
-                  outerRadius={80}
-                  dataKey="value"
-                >
-                  {priorityData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Gráfico de Status */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Ordens por Status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={statusData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
-                <YAxis stroke="hsl(var(--muted-foreground))" />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: "hsl(var(--card))", 
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "var(--radius)"
-                  }}
-                />
-                <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-                  {statusData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Gráfico de Linha do Tempo */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Status ao Longo do Tempo</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={timelineData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" />
-                <YAxis stroke="hsl(var(--muted-foreground))" />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: "hsl(var(--card))", 
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "var(--radius)"
-                  }}
-                />
-                <Legend />
-                <Line 
-                  type="monotone" 
-                  dataKey="pendente" 
-                  stroke="hsl(var(--warning))" 
-                  strokeWidth={2}
-                  name="Pendente"
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="andamento" 
-                  stroke="hsl(var(--primary))" 
-                  strokeWidth={2}
-                  name="Em Andamento"
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="concluida" 
-                  stroke="hsl(var(--success))" 
-                  strokeWidth={2}
-                  name="Concluída"
-                />
-              </LineChart>
-            </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>
