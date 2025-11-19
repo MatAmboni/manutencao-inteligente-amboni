@@ -281,7 +281,9 @@ const ServiceOrders = () => {
                          order.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === "all" || order.status === filterStatus;
     const matchesPriority = filterPriority === "all" || order.priority === filterPriority;
-    return matchesSearch && matchesStatus && matchesPriority;
+    // Exclui ordens concluídas da lista principal (a menos que o filtro de status seja "Concluída")
+    const isNotCompleted = filterStatus === "Concluída" ? true : order.status !== "Concluída";
+    return matchesSearch && matchesStatus && matchesPriority && isNotCompleted;
   });
 
   const stats = {
@@ -487,7 +489,7 @@ const ServiceOrders = () => {
       {/* Histórico de Manutenção */}
       <Card>
         <CardHeader>
-          <CardTitle>Histórico de Manutenção</CardTitle>
+          <CardTitle>Histórico de Ordens</CardTitle>
           <p className="text-sm text-muted-foreground">
             Últimas ordens concluídas
           </p>
