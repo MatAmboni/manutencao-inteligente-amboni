@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Search, Edit2, Trash2, Clock, AlertCircle, CheckCircle2, ListChecks, FileDown, FileSpreadsheet } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, Clock, AlertCircle, CheckCircle2, ListChecks, FileDown, FileSpreadsheet, Play, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ServiceOrderDialog from "@/components/ServiceOrderDialog";
 import jsPDF from "jspdf";
@@ -202,6 +202,30 @@ const ServiceOrders = () => {
       setOrderToDelete(null);
       setDeleteDialogOpen(false);
     }
+  };
+
+  const handleChangeStatus = (orderId: string, newStatus: "Pendente" | "Em Andamento" | "Concluída") => {
+    setOrders(orders.map(order => {
+      if (order.id === orderId) {
+        const updatedOrder = { ...order, status: newStatus };
+        if (newStatus === "Concluída") {
+          updatedOrder.completedAt = new Date().toISOString().split("T")[0];
+        }
+        return updatedOrder;
+      }
+      return order;
+    }));
+    
+    const statusMessages = {
+      "Pendente": "voltou para pendente",
+      "Em Andamento": "iniciada",
+      "Concluída": "concluída e movida para o histórico"
+    };
+    
+    toast({
+      title: "Status atualizado!",
+      description: `Ordem ${orderId} foi ${statusMessages[newStatus]}.`,
+    });
   };
 
   const handleOpenEditDialog = (order: ServiceOrder) => {
@@ -450,6 +474,26 @@ const ServiceOrders = () => {
                   <Badge className={getPriorityColor(order.priority)}>
                     {order.priority}
                   </Badge>
+                  {order.status === "Pendente" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleChangeStatus(order.id, "Em Andamento")}
+                    >
+                      <Play className="h-4 w-4 mr-1" />
+                      Iniciar
+                    </Button>
+                  )}
+                  {(order.status === "Em Andamento" || order.status === "Pendente") && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleChangeStatus(order.id, "Concluída")}
+                    >
+                      <Check className="h-4 w-4 mr-1" />
+                      Concluir
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="icon"
