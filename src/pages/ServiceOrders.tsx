@@ -31,6 +31,7 @@ interface ServiceOrder {
   requestDate: string;
   suggestedDeadline: string;
   requester: string;
+  assignedTo?: string;
   createdAt: string;
   completedAt?: string;
 }
@@ -44,6 +45,14 @@ const ServiceOrders = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterPriority, setFilterPriority] = useState<string>("all");
+
+  const technicians = [
+    "João Silva",
+    "Maria Santos",
+    "Pedro Oliveira",
+    "Ana Costa",
+    "Carlos Ferreira"
+  ];
   const [orders, setOrders] = useState<ServiceOrder[]>([
     {
       id: "OS-001",
@@ -522,6 +531,12 @@ const ServiceOrders = () => {
                 <span>Equipe: {order.executionTeam}</span>
                 <span>•</span>
                 <span>Solicitante: {order.requester}</span>
+                {order.assignedTo && (
+                  <>
+                    <span>•</span>
+                    <span>Responsável: {order.assignedTo}</span>
+                  </>
+                )}
                 <span>•</span>
                 <span>Prazo: {new Date(order.suggestedDeadline).toLocaleDateString('pt-BR')}</span>
               </div>
@@ -571,6 +586,7 @@ const ServiceOrders = () => {
         onOpenChange={handleCloseDialog}
         equipment={equipment}
         requesters={requesters}
+        technicians={technicians}
         order={editingOrder}
         onSave={(orderData) => {
           if (editingOrder) {

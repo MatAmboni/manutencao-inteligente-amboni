@@ -50,6 +50,7 @@ interface ServiceOrder {
   requestDate: string;
   suggestedDeadline: string;
   requester: string;
+  assignedTo?: string;
   createdAt: string;
 }
 
@@ -58,6 +59,7 @@ interface ServiceOrderDialogProps {
   onOpenChange: (open: boolean) => void;
   equipment: Equipment[];
   requesters: string[];
+  technicians: string[];
   order?: ServiceOrder;
   onSave: (order: {
     equipment: string;
@@ -68,11 +70,12 @@ interface ServiceOrderDialogProps {
     requestDate: string;
     suggestedDeadline: string;
     requester: string;
+    assignedTo?: string;
     status: "Pendente" | "Em Andamento" | "Concluída";
   }) => void;
 }
 
-const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, order, onSave }: ServiceOrderDialogProps) => {
+const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, technicians, order, onSave }: ServiceOrderDialogProps) => {
   const { toast } = useToast();
   const [formData, setFormData] = useState({
     equipment: "",
@@ -84,6 +87,7 @@ const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, order, 
     requestDate: new Date().toISOString().split("T")[0],
     suggestedDeadline: "",
     requester: "",
+    assignedTo: "",
   });
   const [requesterOpen, setRequesterOpen] = useState(false);
   const [availableRequesters, setAvailableRequesters] = useState<string[]>(requesters);
@@ -105,6 +109,7 @@ const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, order, 
         requestDate: order.requestDate,
         suggestedDeadline: order.suggestedDeadline,
         requester: order.requester,
+        assignedTo: order.assignedTo || "",
       });
     } else if (!open) {
       setFormData({
@@ -117,6 +122,7 @@ const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, order, 
         requestDate: new Date().toISOString().split('T')[0],
         suggestedDeadline: "",
         requester: "",
+        assignedTo: "",
       });
     }
   }, [order, open]);
@@ -142,6 +148,7 @@ const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, order, 
       requestDate: formData.requestDate,
       suggestedDeadline: formData.suggestedDeadline,
       requester: formData.requester,
+      assignedTo: formData.assignedTo,
       status: formData.status,
     });
 
@@ -161,6 +168,7 @@ const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, order, 
       requestDate: new Date().toISOString().split("T")[0],
       suggestedDeadline: "",
       requester: "",
+      assignedTo: "",
     });
   };
 
@@ -347,6 +355,27 @@ const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, order, 
                 </Command>
               </PopoverContent>
             </Popover>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="assignedTo">Técnico Responsável</Label>
+            <Select
+              value={formData.assignedTo}
+              onValueChange={(value) =>
+                setFormData({ ...formData, assignedTo: value })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o técnico" />
+              </SelectTrigger>
+              <SelectContent>
+                {technicians.map((technician) => (
+                  <SelectItem key={technician} value={technician}>
+                    {technician}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
