@@ -14,7 +14,140 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      equipment: {
+        Row: {
+          created_at: string | null
+          id: string
+          install_date: string | null
+          last_maintenance: string
+          location: string
+          manufacturer: string | null
+          model: string | null
+          name: string
+          serial_number: string | null
+          status: string
+          type: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          install_date?: string | null
+          last_maintenance: string
+          location: string
+          manufacturer?: string | null
+          model?: string | null
+          name: string
+          serial_number?: string | null
+          status: string
+          type: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          install_date?: string | null
+          last_maintenance?: string
+          location?: string
+          manufacturer?: string | null
+          model?: string | null
+          name?: string
+          serial_number?: string | null
+          status?: string
+          type?: string
+        }
+        Relationships: []
+      }
+      requesters: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      service_orders: {
+        Row: {
+          assigned_to: string | null
+          completed_at: string | null
+          created_at: string | null
+          description: string | null
+          equipment_id: string
+          execution_team: string
+          id: string
+          priority: string
+          request_date: string
+          requester: string
+          sector: string
+          status: string
+          suggested_deadline: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          equipment_id: string
+          execution_team: string
+          id?: string
+          priority: string
+          request_date: string
+          requester: string
+          sector: string
+          status: string
+          suggested_deadline: string
+        }
+        Update: {
+          assigned_to?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          equipment_id?: string
+          execution_team?: string
+          id?: string
+          priority?: string
+          request_date?: string
+          requester?: string
+          sector?: string
+          status?: string
+          suggested_deadline?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_orders_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      technicians: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

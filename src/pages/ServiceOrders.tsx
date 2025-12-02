@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,7 @@ interface Equipment {
 
 interface ServiceOrder {
   id: string;
+  equipmentId: string;
   equipment: string;
   description: string;
   status: "Pendente" | "Em Andamento" | "Concluída";
@@ -45,196 +47,232 @@ const ServiceOrders = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterPriority, setFilterPriority] = useState<string>("all");
+  const [orders, setOrders] = useState<ServiceOrder[]>([]);
+  const [equipment, setEquipment] = useState<Equipment[]>([]);
+  const [requesters, setRequesters] = useState<string[]>([]);
+  const [technicians, setTechnicians] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const technicians = [
-    "João Silva",
-    "Maria Santos",
-    "Pedro Oliveira",
-    "Ana Costa",
-    "Carlos Ferreira"
-  ];
-  const [orders, setOrders] = useState<ServiceOrder[]>([
-    {
-      id: "OS-001",
-      equipment: "Compressor 01",
-      description: "Manutenção preventiva do sistema de refrigeração",
-      status: "Concluída",
-      priority: "Alta",
-      sector: "Mecânico",
-      executionTeam: "Interna",
-      requestDate: "2024-01-15",
-      suggestedDeadline: "2024-01-20",
-      requester: "João Silva",
-      createdAt: "2024-01-15",
-      completedAt: "2024-01-19",
-    },
-    {
-      id: "OS-002",
-      equipment: "Motor Elétrico 03",
-      description: "Verificação de conexões e substituição de rolamentos",
-      status: "Pendente",
-      priority: "Média",
-      sector: "Elétrico",
-      executionTeam: "Externa",
-      requestDate: "2024-01-14",
-      suggestedDeadline: "2024-01-18",
-      requester: "Maria Santos",
-      createdAt: "2024-01-14",
-    },
-    {
-      id: "OS-003",
-      equipment: "Painel de Controle",
-      description: "Atualização de firmware e teste de segurança",
-      status: "Em Andamento",
-      priority: "Alta",
-      sector: "Elétrico",
-      executionTeam: "Interna",
-      requestDate: "2024-01-13",
-      suggestedDeadline: "2024-01-17",
-      requester: "Carlos Oliveira",
-      createdAt: "2024-01-13",
-    },
-    {
-      id: "OS-004",
-      equipment: "Válvula de Pressão 5",
-      description: "Calibração e teste de vazão",
-      status: "Concluída",
-      priority: "Média",
-      sector: "Mecânico",
-      executionTeam: "Interna",
-      requestDate: "2024-01-10",
-      suggestedDeadline: "2024-01-15",
-      requester: "Ana Costa",
-      createdAt: "2024-01-10",
-      completedAt: "2024-01-14",
-    },
-    {
-      id: "OS-005",
-      equipment: "Bomba Hidráulica 2",
-      description: "Troca de vedações",
-      status: "Concluída",
-      priority: "Baixa",
-      sector: "Mecânico",
-      executionTeam: "Externa",
-      requestDate: "2024-01-08",
-      suggestedDeadline: "2024-01-12",
-      requester: "Pedro Almeida",
-      createdAt: "2024-01-08",
-      completedAt: "2024-01-11",
-    },
-    {
-      id: "OS-006",
-      equipment: "Transformador Principal",
-      description: "Inspeção elétrica geral",
-      status: "Concluída",
-      priority: "Alta",
-      sector: "Elétrico",
-      executionTeam: "Interna",
-      requestDate: "2024-01-05",
-      suggestedDeadline: "2024-01-10",
-      requester: "João Silva",
-      createdAt: "2024-01-05",
-      completedAt: "2024-01-09",
-    },
-  ]);
+  useEffect(() => {
+    loadData();
+  }, []);
 
-  const [equipment] = useState<Equipment[]>([
-    {
-      id: "EQ-001",
-      name: "Compressor 01",
-      type: "Mecânico",
-      status: "Manutenção",
-      location: "Setor A - Linha 1",
-    },
-    {
-      id: "EQ-002",
-      name: "Motor Elétrico 03",
-      type: "Elétrico",
-      status: "Operacional",
-      location: "Setor B - Linha 2",
-    },
-    {
-      id: "EQ-003",
-      name: "Painel de Controle",
-      type: "Elétrico",
-      status: "Operacional",
-      location: "Sala de Controle",
-    },
-    {
-      id: "EQ-004",
-      name: "Válvula de Pressão 5",
-      type: "Mecânico",
-      status: "Operacional",
-      location: "Setor C - Linha 3",
-    },
-  ]);
+  const loadData = async () => {
+    try {
+      // Load equipment
+      const { data: equipmentData, error: equipmentError } = await supabase
+        .from('equipment')
+        .select('id, name, type, status, location');
 
-  const [requesters] = useState<string[]>([
-    "João Silva",
-    "Maria Santos",
-    "Carlos Oliveira",
-    "Ana Costa",
-    "Pedro Almeida",
-  ]);
+      if (equipmentError) throw equipmentError;
 
-  const handleAddOrder = (newOrder: Omit<ServiceOrder, "id" | "createdAt">) => {
-    const orderNumber = orders.length + 1;
-    const order: ServiceOrder = {
-      ...newOrder,
-      id: `OS-${orderNumber.toString().padStart(3, "0")}`,
-      createdAt: new Date().toISOString().split("T")[0],
-    };
-    setOrders([order, ...orders]);
-    toast({
-      title: "Ordem criada!",
-      description: `Ordem ${order.id} foi criada com sucesso.`,
-    });
-  };
+      const formattedEquipment: Equipment[] = (equipmentData || []).map(item => ({
+        id: item.id,
+        name: item.name,
+        type: item.type as "Elétrico" | "Mecânico",
+        status: item.status as "Operacional" | "Manutenção" | "Inativo",
+        location: item.location,
+      }));
 
-  const handleEditOrder = (updatedOrder: ServiceOrder) => {
-    setOrders(orders.map(order => 
-      order.id === updatedOrder.id ? updatedOrder : order
-    ));
-    toast({
-      title: "Ordem atualizada!",
-      description: `Ordem ${updatedOrder.id} foi atualizada com sucesso.`,
-    });
-  };
+      setEquipment(formattedEquipment);
 
-  const handleDeleteOrder = () => {
-    if (orderToDelete) {
-      setOrders(orders.filter(order => order.id !== orderToDelete));
+      // Load service orders
+      const { data: ordersData, error: ordersError } = await supabase
+        .from('service_orders')
+        .select('*, equipment(name)')
+        .order('created_at', { ascending: false });
+
+      if (ordersError) throw ordersError;
+
+      const formattedOrders: ServiceOrder[] = (ordersData || []).map(order => ({
+        id: order.id,
+        equipmentId: order.equipment_id,
+        equipment: order.equipment?.name || '',
+        description: order.description || '',
+        status: order.status as "Pendente" | "Em Andamento" | "Concluída",
+        priority: order.priority as "Baixa" | "Média" | "Alta",
+        sector: order.sector as "Elétrico" | "Mecânico",
+        executionTeam: order.execution_team as "Interna" | "Externa",
+        requestDate: order.request_date,
+        suggestedDeadline: order.suggested_deadline,
+        requester: order.requester,
+        assignedTo: order.assigned_to || undefined,
+        createdAt: order.created_at,
+        completedAt: order.completed_at || undefined,
+      }));
+
+      setOrders(formattedOrders);
+
+      // Load requesters
+      const { data: requestersData, error: requestersError } = await supabase
+        .from('requesters')
+        .select('name')
+        .order('name');
+
+      if (requestersError) throw requestersError;
+
+      setRequesters(requestersData?.map(r => r.name) || []);
+
+      // Load technicians
+      const { data: techniciansData, error: techniciansError } = await supabase
+        .from('technicians')
+        .select('name')
+        .order('name');
+
+      if (techniciansError) throw techniciansError;
+
+      setTechnicians(techniciansData?.map(t => t.name) || []);
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error);
       toast({
-        title: "Ordem excluída!",
-        description: "A ordem foi excluída com sucesso.",
+        title: "Erro",
+        description: "Não foi possível carregar os dados.",
+        variant: "destructive",
       });
-      setOrderToDelete(null);
-      setDeleteDialogOpen(false);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleChangeStatus = (orderId: string, newStatus: "Pendente" | "Em Andamento" | "Concluída") => {
-    setOrders(orders.map(order => {
-      if (order.id === orderId) {
-        const updatedOrder = { ...order, status: newStatus };
-        if (newStatus === "Concluída") {
-          updatedOrder.completedAt = new Date().toISOString().split("T")[0];
-        }
-        return updatedOrder;
+  const handleAddOrder = async (newOrder: Omit<ServiceOrder, "id" | "createdAt">) => {
+    try {
+      const { data, error } = await supabase
+        .from('service_orders')
+        .insert({
+          equipment_id: newOrder.equipmentId,
+          description: newOrder.description,
+          status: newOrder.status,
+          priority: newOrder.priority,
+          sector: newOrder.sector,
+          execution_team: newOrder.executionTeam,
+          request_date: newOrder.requestDate,
+          suggested_deadline: newOrder.suggestedDeadline,
+          requester: newOrder.requester,
+          assigned_to: newOrder.assignedTo,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast({
+        title: "Ordem criada!",
+        description: `Ordem foi criada com sucesso.`,
+      });
+      
+      loadData();
+    } catch (error) {
+      console.error('Erro ao criar ordem:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível criar a ordem.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditOrder = async (updatedOrder: ServiceOrder) => {
+    try {
+      const { error } = await supabase
+        .from('service_orders')
+        .update({
+          equipment_id: updatedOrder.equipmentId,
+          description: updatedOrder.description,
+          status: updatedOrder.status,
+          priority: updatedOrder.priority,
+          sector: updatedOrder.sector,
+          execution_team: updatedOrder.executionTeam,
+          request_date: updatedOrder.requestDate,
+          suggested_deadline: updatedOrder.suggestedDeadline,
+          requester: updatedOrder.requester,
+          assigned_to: updatedOrder.assignedTo,
+        })
+        .eq('id', updatedOrder.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Ordem atualizada!",
+        description: `Ordem foi atualizada com sucesso.`,
+      });
+      
+      loadData();
+    } catch (error) {
+      console.error('Erro ao atualizar ordem:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar a ordem.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteOrder = async () => {
+    if (orderToDelete) {
+      try {
+        const { error } = await supabase
+          .from('service_orders')
+          .delete()
+          .eq('id', orderToDelete);
+
+        if (error) throw error;
+
+        toast({
+          title: "Ordem excluída!",
+          description: "A ordem foi excluída com sucesso.",
+        });
+        
+        setOrderToDelete(null);
+        setDeleteDialogOpen(false);
+        loadData();
+      } catch (error) {
+        console.error('Erro ao excluir ordem:', error);
+        toast({
+          title: "Erro",
+          description: "Não foi possível excluir a ordem.",
+          variant: "destructive",
+        });
       }
-      return order;
-    }));
-    
-    const statusMessages = {
-      "Pendente": "voltou para pendente",
-      "Em Andamento": "iniciada",
-      "Concluída": "concluída e movida para o histórico"
-    };
-    
-    toast({
-      title: "Status atualizado!",
-      description: `Ordem ${orderId} foi ${statusMessages[newStatus]}.`,
-    });
+    }
+  };
+
+  const handleChangeStatus = async (orderId: string, newStatus: "Pendente" | "Em Andamento" | "Concluída") => {
+    try {
+      const updateData: any = {
+        status: newStatus,
+      };
+
+      if (newStatus === "Concluída") {
+        updateData.completed_at = new Date().toISOString();
+      }
+
+      const { error } = await supabase
+        .from('service_orders')
+        .update(updateData)
+        .eq('id', orderId);
+
+      if (error) throw error;
+
+      const statusMessages = {
+        "Pendente": "voltou para pendente",
+        "Em Andamento": "iniciada",
+        "Concluída": "concluída e movida para o histórico"
+      };
+      
+      toast({
+        title: "Status atualizado!",
+        description: `Ordem foi ${statusMessages[newStatus]}.`,
+      });
+      
+      loadData();
+    } catch (error) {
+      console.error('Erro ao atualizar status:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar o status.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleOpenEditDialog = (order: ServiceOrder) => {
@@ -245,6 +283,62 @@ const ServiceOrders = () => {
   const handleCloseDialog = () => {
     setDialogOpen(false);
     setEditingOrder(undefined);
+  };
+
+  const handleSaveOrder = (orderData: {
+    equipment: string;
+    description: string;
+    priority: "Baixa" | "Média" | "Alta";
+    sector: "Elétrico" | "Mecânico";
+    executionTeam: "Interna" | "Externa";
+    requestDate: string;
+    suggestedDeadline: string;
+    requester: string;
+    assignedTo?: string;
+    status: "Pendente" | "Em Andamento" | "Concluída";
+  }) => {
+    const equipmentItem = equipment.find(eq => eq.name === orderData.equipment);
+    
+    if (!equipmentItem) {
+      toast({
+        title: "Erro",
+        description: "Equipamento não encontrado.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (editingOrder) {
+      handleEditOrder({
+        ...editingOrder,
+        equipmentId: equipmentItem.id,
+        equipment: orderData.equipment,
+        description: orderData.description,
+        priority: orderData.priority,
+        sector: orderData.sector,
+        executionTeam: orderData.executionTeam,
+        requestDate: orderData.requestDate,
+        suggestedDeadline: orderData.suggestedDeadline,
+        requester: orderData.requester,
+        assignedTo: orderData.assignedTo,
+        status: orderData.status,
+      });
+    } else {
+      handleAddOrder({
+        equipmentId: equipmentItem.id,
+        equipment: orderData.equipment,
+        description: orderData.description,
+        priority: orderData.priority,
+        sector: orderData.sector,
+        executionTeam: orderData.executionTeam,
+        requestDate: orderData.requestDate,
+        suggestedDeadline: orderData.suggestedDeadline,
+        requester: orderData.requester,
+        assignedTo: orderData.assignedTo,
+        status: orderData.status,
+      });
+    }
+    handleCloseDialog();
   };
 
   const exportToPDF = () => {
@@ -588,14 +682,7 @@ const ServiceOrders = () => {
         requesters={requesters}
         technicians={technicians}
         order={editingOrder}
-        onSave={(orderData) => {
-          if (editingOrder) {
-            handleEditOrder({ ...orderData, id: editingOrder.id, createdAt: editingOrder.createdAt });
-          } else {
-            handleAddOrder(orderData);
-          }
-          handleCloseDialog();
-        }}
+        onSave={handleSaveOrder}
       />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
