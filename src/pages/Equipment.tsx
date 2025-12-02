@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -57,80 +58,47 @@ const Equipment = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [equipment, setEquipment] = useState<Equipment[]>([
-    {
-      id: "EQ-001",
-      name: "Compressor 01",
-      type: "Mecânico",
-      status: "Manutenção",
-      location: "Setor A - Linha 1",
-      lastMaintenance: "2024-01-10",
-      manufacturer: "Atlas Copco",
-      model: "GA 75",
-      serialNumber: "SN-2023-001",
-      installDate: "2023-06-15",
-    },
-    {
-      id: "EQ-002",
-      name: "Motor Elétrico 03",
-      type: "Elétrico",
-      status: "Operacional",
-      location: "Setor B - Linha 2",
-      lastMaintenance: "2023-12-15",
-      manufacturer: "WEG",
-      model: "W22",
-      serialNumber: "SN-2022-045",
-      installDate: "2022-03-20",
-    },
-    {
-      id: "EQ-003",
-      name: "Painel de Controle",
-      type: "Elétrico",
-      status: "Operacional",
-      location: "Sala de Controle",
-      lastMaintenance: "2024-01-05",
-      manufacturer: "Schneider",
-      model: "TeSys",
-      serialNumber: "SN-2023-089",
-      installDate: "2023-09-10",
-    },
-    {
-      id: "EQ-004",
-      name: "Válvula de Pressão 5",
-      type: "Mecânico",
-      status: "Operacional",
-      location: "Setor C - Linha 3",
-      lastMaintenance: "2024-01-08",
-      manufacturer: "Parker",
-      model: "VP-500",
-      serialNumber: "SN-2023-112",
-      installDate: "2023-11-05",
-    },
-    {
-      id: "EQ-005",
-      name: "Transformador Principal",
-      type: "Elétrico",
-      status: "Operacional",
-      location: "Subestação",
-      lastMaintenance: "2024-01-03",
-      manufacturer: "ABB",
-      model: "DTG 500",
-      serialNumber: "SN-2021-003",
-      installDate: "2021-08-12",
-    },
-    {
-      id: "EQ-006",
-      name: "Bomba Hidráulica 02",
-      type: "Mecânico",
-      status: "Inativo",
-      location: "Setor A - Linha 1",
-      lastMaintenance: "2023-11-20",
-      manufacturer: "Grundfos",
-      model: "CR 64",
-      serialNumber: "SN-2022-078",
-      installDate: "2022-05-18",
-    },
-  ]);
+  const [equipment, setEquipment] = useState<Equipment[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadEquipment();
+  }, []);
+
+  const loadEquipment = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('equipment')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedData: Equipment[] = (data || []).map(item => ({
+        id: item.id,
+        name: item.name,
+        type: item.type as "Elétrico" | "Mecânico",
+        status: item.status as "Operacional" | "Manutenção" | "Inativo",
+        location: item.location,
+        lastMaintenance: item.last_maintenance,
+        manufacturer: item.manufacturer || undefined,
+        model: item.model || undefined,
+        serialNumber: item.serial_number || undefined,
+        installDate: item.install_date || undefined,
+      }));
+
+      setEquipment(formattedData);
+    } catch (error) {
+      console.error('Erro ao carregar equipamentos:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar os equipamentos.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const [locations] = useState<string[]>([
     "Setor A - Linha 1",
@@ -163,34 +131,104 @@ const Equipment = () => {
     mechanical: equipment.filter(e => e.type === "Mecânico").length,
   };
 
-  const handleAddEquipment = (newEquipment: Omit<Equipment, "id">) => {
-    const id = `EQ-${String(equipment.length + 1).padStart(3, "0")}`;
-    setEquipment([...equipment, { ...newEquipment, id }]);
-    toast({
-      title: "Equipamento Cadastrado",
-      description: `${newEquipment.name} foi adicionado com sucesso.`,
-    });
-  };
+  const handleAddEquipment = async (newEquipment: Omit<Equipment, "id">) => {
+    try {
+      const { error } = await supabase
+        .from('equipment')
+        .insert({
+          name: newEquipment.name,
+          type: newEquipment.type,
+          status: newEquipment.status,
+          location: newEquipment.location,
+          last_maintenance: newEquipment.lastMaintenance,
+          manufacturer: newEquipment.manufacturer,
+          model: newEquipment.model,
+          serial_number: newEquipment.serialNumber,
+          install_date: newEquipment.installDate,
+        });
 
-  const handleEditEquipment = (updatedEquipment: Equipment) => {
-    setEquipment(equipment.map(e => e.id === updatedEquipment.id ? updatedEquipment : e));
-    toast({
-      title: "Equipamento Atualizado",
-      description: `${updatedEquipment.name} foi atualizado com sucesso.`,
-    });
-  };
+      if (error) throw error;
 
-  const handleDeleteEquipment = () => {
-    if (equipmentToDelete) {
-      const deletedEquipment = equipment.find(e => e.id === equipmentToDelete);
-      setEquipment(equipment.filter(e => e.id !== equipmentToDelete));
       toast({
-        title: "Equipamento Removido",
-        description: `${deletedEquipment?.name} foi removido com sucesso.`,
+        title: "Equipamento Cadastrado",
+        description: `${newEquipment.name} foi adicionado com sucesso.`,
+      });
+      
+      loadEquipment();
+    } catch (error) {
+      console.error('Erro ao adicionar equipamento:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível adicionar o equipamento.",
         variant: "destructive",
       });
-      setEquipmentToDelete(null);
-      setDeleteDialogOpen(false);
+    }
+  };
+
+  const handleEditEquipment = async (updatedEquipment: Equipment) => {
+    try {
+      const { error } = await supabase
+        .from('equipment')
+        .update({
+          name: updatedEquipment.name,
+          type: updatedEquipment.type,
+          status: updatedEquipment.status,
+          location: updatedEquipment.location,
+          last_maintenance: updatedEquipment.lastMaintenance,
+          manufacturer: updatedEquipment.manufacturer,
+          model: updatedEquipment.model,
+          serial_number: updatedEquipment.serialNumber,
+          install_date: updatedEquipment.installDate,
+        })
+        .eq('id', updatedEquipment.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Equipamento Atualizado",
+        description: `${updatedEquipment.name} foi atualizado com sucesso.`,
+      });
+      
+      loadEquipment();
+    } catch (error) {
+      console.error('Erro ao atualizar equipamento:', error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar o equipamento.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteEquipment = async () => {
+    if (equipmentToDelete) {
+      try {
+        const deletedEquipment = equipment.find(e => e.id === equipmentToDelete);
+        
+        const { error } = await supabase
+          .from('equipment')
+          .delete()
+          .eq('id', equipmentToDelete);
+
+        if (error) throw error;
+
+        toast({
+          title: "Equipamento Removido",
+          description: `${deletedEquipment?.name} foi removido com sucesso.`,
+          variant: "destructive",
+        });
+        
+        setEquipmentToDelete(null);
+        setDeleteDialogOpen(false);
+        loadEquipment();
+      } catch (error) {
+        console.error('Erro ao remover equipamento:', error);
+        toast({
+          title: "Erro",
+          description: "Não foi possível remover o equipamento.",
+          variant: "destructive",
+        });
+      }
     }
   };
 

@@ -41,6 +41,7 @@ interface Equipment {
 
 interface ServiceOrder {
   id: string;
+  equipmentId?: string;
   equipment: string;
   description: string;
   status: "Pendente" | "Em Andamento" | "Concluída";
