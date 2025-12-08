@@ -6,9 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Search, Edit2, Trash2, Clock, AlertCircle, CheckCircle2, ListChecks, FileDown, FileSpreadsheet, Play, Check } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, Clock, AlertCircle, CheckCircle2, ListChecks, FileDown, FileSpreadsheet, Play, Check, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ServiceOrderDialog from "@/components/ServiceOrderDialog";
+import StartOrderDialog from "@/components/StartOrderDialog";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -19,6 +20,11 @@ interface Equipment {
   type: "Elétrico" | "Mecânico";
   status: "Operacional" | "Manutenção" | "Inativo";
   location: string;
+}
+
+interface Technician {
+  id: string;
+  name: string;
 }
 
 interface ServiceOrder {
@@ -33,7 +39,7 @@ interface ServiceOrder {
   requestDate: string;
   suggestedDeadline: string;
   requester: string;
-  assignedTo?: string;
+  assignedTechnicians: string[];
   createdAt: string;
   completedAt?: string;
 }
@@ -50,8 +56,10 @@ const ServiceOrders = () => {
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [requesters, setRequesters] = useState<string[]>([]);
-  const [technicians, setTechnicians] = useState<string[]>([]);
+  const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [loading, setLoading] = useState(true);
+  const [startOrderDialogOpen, setStartOrderDialogOpen] = useState(false);
+  const [orderToStart, setOrderToStart] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -76,13 +84,26 @@ const ServiceOrders = () => {
 
       setEquipment(formattedEquipment);
 
-      // Load service orders
+      // Load service orders with technicians
       const { data: ordersData, error: ordersError } = await supabase
         .from('service_orders')
         .select('*, equipment(name)')
         .order('created_at', { ascending: false });
 
       if (ordersError) throw ordersError;
+
+      // Load technician assignments for each order
+      const { data: assignmentsData } = await supabase
+        .from('service_order_technicians')
+        .select('service_order_id, technician_id');
+
+      const techniciansByOrder = (assignmentsData || []).reduce((acc, assignment) => {
+        if (!acc[assignment.service_order_id]) {
+          acc[assignment.service_order_id] = [];
+        }
+        acc[assignment.service_order_id].push(assignment.technician_id);
+        return acc;
+      }, {} as Record<string, string[]>);
 
       const formattedOrders: ServiceOrder[] = (ordersData || []).map(order => ({
         id: order.id,
@@ -96,7 +117,7 @@ const ServiceOrders = () => {
         requestDate: order.request_date,
         suggestedDeadline: order.suggested_deadline,
         requester: order.requester,
-        assignedTo: order.assigned_to || undefined,
+        assignedTechnicians: techniciansByOrder[order.id] || [],
         createdAt: order.created_at,
         completedAt: order.completed_at || undefined,
       }));
@@ -116,12 +137,12 @@ const ServiceOrders = () => {
       // Load technicians
       const { data: techniciansData, error: techniciansError } = await supabase
         .from('technicians')
-        .select('name')
+        .select('id, name')
         .order('name');
 
       if (techniciansError) throw techniciansError;
 
-      setTechnicians(techniciansData?.map(t => t.name) || []);
+      setTechnicians(techniciansData || []);
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
       toast({
@@ -148,12 +169,20 @@ const ServiceOrders = () => {
           request_date: newOrder.requestDate,
           suggested_deadline: newOrder.suggestedDeadline,
           requester: newOrder.requester,
-          assigned_to: newOrder.assignedTo,
         })
         .select()
         .single();
 
       if (error) throw error;
+
+      // Add technician assignments
+      if (newOrder.assignedTechnicians.length > 0 && data) {
+        const technicianAssignments = newOrder.assignedTechnicians.map(techId => ({
+          service_order_id: data.id,
+          technician_id: techId,
+        }));
+        await supabase.from('service_order_technicians').insert(technicianAssignments);
+      }
 
       toast({
         title: "Ordem criada!",
@@ -185,11 +214,21 @@ const ServiceOrders = () => {
           request_date: updatedOrder.requestDate,
           suggested_deadline: updatedOrder.suggestedDeadline,
           requester: updatedOrder.requester,
-          assigned_to: updatedOrder.assignedTo,
         })
         .eq('id', updatedOrder.id);
 
       if (error) throw error;
+
+      // Update technician assignments
+      await supabase.from('service_order_technicians').delete().eq('service_order_id', updatedOrder.id);
+      
+      if (updatedOrder.assignedTechnicians.length > 0) {
+        const technicianAssignments = updatedOrder.assignedTechnicians.map(techId => ({
+          service_order_id: updatedOrder.id,
+          technician_id: techId,
+        }));
+        await supabase.from('service_order_technicians').insert(technicianAssignments);
+      }
 
       toast({
         title: "Ordem atualizada!",
@@ -275,6 +314,26 @@ const ServiceOrders = () => {
     }
   };
 
+  const handleStartOrderWithEpis = async (orderId: string, epiIds: string[]) => {
+    try {
+      await supabase.from('service_orders').update({ status: 'Em Andamento' }).eq('id', orderId);
+      
+      if (epiIds.length > 0) {
+        const epiAssignments = epiIds.map(epiId => ({
+          service_order_id: orderId,
+          epi_id: epiId,
+        }));
+        await supabase.from('service_order_epis').insert(epiAssignments);
+      }
+      
+      toast({ title: "Ordem iniciada!", description: "EPIs registrados com sucesso." });
+      loadData();
+    } catch (error) {
+      console.error('Erro ao iniciar ordem:', error);
+      toast({ title: "Erro", description: "Não foi possível iniciar a ordem.", variant: "destructive" });
+    }
+  };
+
   const handleOpenEditDialog = (order: ServiceOrder) => {
     setEditingOrder(order);
     setDialogOpen(true);
@@ -294,7 +353,7 @@ const ServiceOrders = () => {
     requestDate: string;
     suggestedDeadline: string;
     requester: string;
-    assignedTo?: string;
+    assignedTechnicians: string[];
     status: "Pendente" | "Em Andamento" | "Concluída";
   }) => {
     const equipmentItem = equipment.find(eq => eq.name === orderData.equipment);
@@ -320,7 +379,7 @@ const ServiceOrders = () => {
         requestDate: orderData.requestDate,
         suggestedDeadline: orderData.suggestedDeadline,
         requester: orderData.requester,
-        assignedTo: orderData.assignedTo,
+        assignedTechnicians: orderData.assignedTechnicians,
         status: orderData.status,
       });
     } else {
@@ -334,7 +393,7 @@ const ServiceOrders = () => {
         requestDate: orderData.requestDate,
         suggestedDeadline: orderData.suggestedDeadline,
         requester: orderData.requester,
-        assignedTo: orderData.assignedTo,
+        assignedTechnicians: orderData.assignedTechnicians,
         status: orderData.status,
       });
     }
@@ -581,7 +640,10 @@ const ServiceOrders = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleChangeStatus(order.id, "Em Andamento")}
+                      onClick={() => {
+                        setOrderToStart(order.id);
+                        setStartOrderDialogOpen(true);
+                      }}
                     >
                       <Play className="h-4 w-4 mr-1" />
                       Iniciar
@@ -625,10 +687,10 @@ const ServiceOrders = () => {
                 <span>Equipe: {order.executionTeam}</span>
                 <span>•</span>
                 <span>Solicitante: {order.requester}</span>
-                {order.assignedTo && (
+                {order.assignedTechnicians.length > 0 && (
                   <>
                     <span>•</span>
-                    <span>Responsável: {order.assignedTo}</span>
+                    <span>Responsáveis: {technicians.filter(t => order.assignedTechnicians.includes(t.id)).map(t => t.name).join(', ')}</span>
                   </>
                 )}
                 <span>•</span>
@@ -701,6 +763,13 @@ const ServiceOrders = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <StartOrderDialog
+        open={startOrderDialogOpen}
+        onOpenChange={setStartOrderDialogOpen}
+        orderId={orderToStart || ''}
+        onStart={handleStartOrderWithEpis}
+      />
     </div>
   );
 };

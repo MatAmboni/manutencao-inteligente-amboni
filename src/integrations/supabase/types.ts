@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      epis: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       equipment: {
         Row: {
           created_at: string | null
@@ -73,6 +94,78 @@ export type Database = {
           name?: string
         }
         Relationships: []
+      }
+      service_order_epis: {
+        Row: {
+          created_at: string | null
+          epi_id: string
+          id: string
+          service_order_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          epi_id: string
+          id?: string
+          service_order_id: string
+        }
+        Update: {
+          created_at?: string | null
+          epi_id?: string
+          id?: string
+          service_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_order_epis_epi_id_fkey"
+            columns: ["epi_id"]
+            isOneToOne: false
+            referencedRelation: "epis"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_order_epis_service_order_id_fkey"
+            columns: ["service_order_id"]
+            isOneToOne: false
+            referencedRelation: "service_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_order_technicians: {
+        Row: {
+          created_at: string | null
+          id: string
+          service_order_id: string
+          technician_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          service_order_id: string
+          technician_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          service_order_id?: string
+          technician_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_order_technicians_service_order_id_fkey"
+            columns: ["service_order_id"]
+            isOneToOne: false
+            referencedRelation: "service_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_order_technicians_technician_id_fkey"
+            columns: ["technician_id"]
+            isOneToOne: false
+            referencedRelation: "technicians"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       service_orders: {
         Row: {
