@@ -32,11 +32,17 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import MultiTechnicianSelect from "./MultiTechnicianSelect";
 
 interface Equipment {
   id: string;
   name: string;
   type: "Elétrico" | "Mecânico";
+}
+
+interface Technician {
+  id: string;
+  name: string;
 }
 
 interface ServiceOrder {
@@ -51,7 +57,7 @@ interface ServiceOrder {
   requestDate: string;
   suggestedDeadline: string;
   requester: string;
-  assignedTo?: string;
+  assignedTechnicians?: string[];
   createdAt: string;
 }
 
@@ -60,7 +66,7 @@ interface ServiceOrderDialogProps {
   onOpenChange: (open: boolean) => void;
   equipment: Equipment[];
   requesters: string[];
-  technicians: string[];
+  technicians: Technician[];
   order?: ServiceOrder;
   onSave: (order: {
     equipment: string;
@@ -71,7 +77,7 @@ interface ServiceOrderDialogProps {
     requestDate: string;
     suggestedDeadline: string;
     requester: string;
-    assignedTo?: string;
+    assignedTechnicians: string[];
     status: "Pendente" | "Em Andamento" | "Concluída";
   }) => void;
 }
@@ -88,7 +94,7 @@ const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, technic
     requestDate: new Date().toISOString().split("T")[0],
     suggestedDeadline: "",
     requester: "",
-    assignedTo: "",
+    assignedTechnicians: [] as string[],
   });
   const [requesterOpen, setRequesterOpen] = useState(false);
   const [availableRequesters, setAvailableRequesters] = useState<string[]>(requesters);
@@ -110,7 +116,7 @@ const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, technic
         requestDate: order.requestDate,
         suggestedDeadline: order.suggestedDeadline,
         requester: order.requester,
-        assignedTo: order.assignedTo || "",
+        assignedTechnicians: order.assignedTechnicians || [],
       });
     } else if (!open) {
       setFormData({
@@ -123,7 +129,7 @@ const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, technic
         requestDate: new Date().toISOString().split('T')[0],
         suggestedDeadline: "",
         requester: "",
-        assignedTo: "",
+        assignedTechnicians: [],
       });
     }
   }, [order, open]);
@@ -149,28 +155,16 @@ const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, technic
       requestDate: formData.requestDate,
       suggestedDeadline: formData.suggestedDeadline,
       requester: formData.requester,
-      assignedTo: formData.assignedTo,
+      assignedTechnicians: formData.assignedTechnicians,
       status: formData.status,
     });
 
     toast({
-      title: "Ordem de Serviço Criada",
-      description: "A ordem foi registrada com sucesso.",
+      title: order ? "Ordem Atualizada" : "Ordem de Serviço Criada",
+      description: order ? "A ordem foi atualizada com sucesso." : "A ordem foi registrada com sucesso.",
     });
     
     onOpenChange(false);
-    setFormData({
-      equipment: "",
-      description: "",
-      status: "Pendente",
-      priority: "Média",
-      sector: "Elétrico",
-      executionTeam: "Interna",
-      requestDate: new Date().toISOString().split("T")[0],
-      suggestedDeadline: "",
-      requester: "",
-      assignedTo: "",
-    });
   };
 
   const handleRequesterSelect = (requester: string) => {
@@ -188,11 +182,11 @@ const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, technic
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Nova Ordem de Serviço</DialogTitle>
+          <DialogTitle>{order ? "Editar Ordem de Serviço" : "Nova Ordem de Serviço"}</DialogTitle>
           <DialogDescription>
-            Preencha os dados para criar uma nova ordem de manutenção
+            {order ? "Edite os dados da ordem de manutenção" : "Preencha os dados para criar uma nova ordem de manutenção"}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -358,26 +352,13 @@ const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, technic
             </Popover>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="assignedTo">Técnico Responsável</Label>
-            <Select
-              value={formData.assignedTo}
-              onValueChange={(value) =>
-                setFormData({ ...formData, assignedTo: value })
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione o técnico" />
-              </SelectTrigger>
-              <SelectContent>
-                {technicians.map((technician) => (
-                  <SelectItem key={technician} value={technician}>
-                    {technician}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <MultiTechnicianSelect
+            technicians={technicians}
+            selectedTechnicians={formData.assignedTechnicians}
+            onSelectionChange={(technicianIds) =>
+              setFormData({ ...formData, assignedTechnicians: technicianIds })
+            }
+          />
 
           <div className="space-y-2">
             <Label htmlFor="description">Descrição</Label>
@@ -400,7 +381,7 @@ const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, technic
             >
               Cancelar
             </Button>
-            <Button type="submit">Criar Ordem</Button>
+            <Button type="submit">{order ? "Salvar" : "Criar Ordem"}</Button>
           </div>
         </form>
       </DialogContent>
