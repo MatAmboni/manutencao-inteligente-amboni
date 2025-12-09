@@ -32,17 +32,11 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import MultiTechnicianSelect from "./MultiTechnicianSelect";
 
 interface Equipment {
   id: string;
   name: string;
   type: "Elétrico" | "Mecânico";
-}
-
-interface Technician {
-  id: string;
-  name: string;
 }
 
 interface ServiceOrder {
@@ -66,7 +60,6 @@ interface ServiceOrderDialogProps {
   onOpenChange: (open: boolean) => void;
   equipment: Equipment[];
   requesters: string[];
-  technicians: Technician[];
   order?: ServiceOrder;
   onSave: (order: {
     equipment: string;
@@ -82,7 +75,7 @@ interface ServiceOrderDialogProps {
   }) => void;
 }
 
-const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, technicians, order, onSave }: ServiceOrderDialogProps) => {
+const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, order, onSave }: ServiceOrderDialogProps) => {
   const { toast } = useToast();
   const [formData, setFormData] = useState({
     equipment: "",
@@ -94,7 +87,6 @@ const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, technic
     requestDate: new Date().toISOString().split("T")[0],
     suggestedDeadline: "",
     requester: "",
-    assignedTechnicians: [] as string[],
   });
   const [requesterOpen, setRequesterOpen] = useState(false);
   const [availableRequesters, setAvailableRequesters] = useState<string[]>(requesters);
@@ -116,7 +108,6 @@ const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, technic
         requestDate: order.requestDate,
         suggestedDeadline: order.suggestedDeadline,
         requester: order.requester,
-        assignedTechnicians: order.assignedTechnicians || [],
       });
     } else if (!open) {
       setFormData({
@@ -129,7 +120,6 @@ const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, technic
         requestDate: new Date().toISOString().split('T')[0],
         suggestedDeadline: "",
         requester: "",
-        assignedTechnicians: [],
       });
     }
   }, [order, open]);
@@ -155,7 +145,7 @@ const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, technic
       requestDate: formData.requestDate,
       suggestedDeadline: formData.suggestedDeadline,
       requester: formData.requester,
-      assignedTechnicians: formData.assignedTechnicians,
+      assignedTechnicians: order?.assignedTechnicians || [],
       status: formData.status,
     });
 
@@ -351,14 +341,6 @@ const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, technic
               </PopoverContent>
             </Popover>
           </div>
-
-          <MultiTechnicianSelect
-            technicians={technicians}
-            selectedTechnicians={formData.assignedTechnicians}
-            onSelectionChange={(technicianIds) =>
-              setFormData({ ...formData, assignedTechnicians: technicianIds })
-            }
-          />
 
           <div className="space-y-2">
             <Label htmlFor="description">Descrição</Label>
