@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Shield } from "lucide-react";
+import { Plus, CheckCircle2 } from "lucide-react";
 
 interface EPI {
   id: string;
@@ -20,14 +20,14 @@ interface EPI {
   description: string | null;
 }
 
-interface StartOrderDialogProps {
+interface CompleteOrderDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   orderId: string;
-  onStart: (orderId: string, epiIds: string[]) => void;
+  onComplete: (orderId: string, epiIds: string[]) => void;
 }
 
-const StartOrderDialog = ({ open, onOpenChange, orderId, onStart }: StartOrderDialogProps) => {
+const CompleteOrderDialog = ({ open, onOpenChange, orderId, onComplete }: CompleteOrderDialogProps) => {
   const { toast } = useToast();
   const [epis, setEpis] = useState<EPI[]>([]);
   const [selectedEpis, setSelectedEpis] = useState<string[]>([]);
@@ -102,7 +102,7 @@ const StartOrderDialog = ({ open, onOpenChange, orderId, onStart }: StartOrderDi
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onStart(orderId, selectedEpis);
+    onComplete(orderId, selectedEpis);
     onOpenChange(false);
   };
 
@@ -111,11 +111,11 @@ const StartOrderDialog = ({ open, onOpenChange, orderId, onStart }: StartOrderDi
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
-            Iniciar Ordem de Serviço
+            <CheckCircle2 className="h-5 w-5" />
+            Concluir Ordem de Serviço
           </DialogTitle>
           <DialogDescription>
-            Selecione os EPIs que serão utilizados durante esta ordem de serviço
+            Selecione os EPIs que foram utilizados durante esta ordem de serviço
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -129,7 +129,6 @@ const StartOrderDialog = ({ open, onOpenChange, orderId, onStart }: StartOrderDi
                   <div
                     key={epi.id}
                     className="flex items-center space-x-2 p-2 border rounded-md hover:bg-muted/50 cursor-pointer"
-                    onClick={() => handleToggleEpi(epi.id)}
                   >
                     <Checkbox
                       id={epi.id}
@@ -138,7 +137,7 @@ const StartOrderDialog = ({ open, onOpenChange, orderId, onStart }: StartOrderDi
                     />
                     <label
                       htmlFor={epi.id}
-                      className="text-sm font-medium leading-none cursor-pointer"
+                      className="text-sm font-medium leading-none cursor-pointer flex-1"
                     >
                       {epi.name}
                     </label>
@@ -189,7 +188,7 @@ const StartOrderDialog = ({ open, onOpenChange, orderId, onStart }: StartOrderDi
               Cancelar
             </Button>
             <Button type="submit">
-              Iniciar Ordem
+              Concluir Ordem
             </Button>
           </div>
         </form>
@@ -198,4 +197,4 @@ const StartOrderDialog = ({ open, onOpenChange, orderId, onStart }: StartOrderDi
   );
 };
 
-export default StartOrderDialog;
+export default CompleteOrderDialog;
