@@ -6,10 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Search, Edit2, Trash2, Clock, AlertCircle, CheckCircle2, ListChecks, FileDown, FileSpreadsheet, Play, Check, Shield } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, Clock, AlertCircle, CheckCircle2, ListChecks, FileDown, FileSpreadsheet, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ServiceOrderDialog from "@/components/ServiceOrderDialog";
-import StartOrderDialog from "@/components/StartOrderDialog";
+import CompleteOrderDialog from "@/components/StartOrderDialog";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -58,8 +58,8 @@ const ServiceOrders = () => {
   const [requesters, setRequesters] = useState<string[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [loading, setLoading] = useState(true);
-  const [startOrderDialogOpen, setStartOrderDialogOpen] = useState(false);
-  const [orderToStart, setOrderToStart] = useState<string | null>(null);
+  const [completeOrderDialogOpen, setCompleteOrderDialogOpen] = useState(false);
+  const [orderToComplete, setOrderToComplete] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -314,9 +314,12 @@ const ServiceOrders = () => {
     }
   };
 
-  const handleStartOrderWithEpis = async (orderId: string, epiIds: string[]) => {
+  const handleCompleteOrderWithEpis = async (orderId: string, epiIds: string[]) => {
     try {
-      await supabase.from('service_orders').update({ status: 'Em Andamento' }).eq('id', orderId);
+      await supabase.from('service_orders').update({ 
+        status: 'Concluída',
+        completed_at: new Date().toISOString()
+      }).eq('id', orderId);
       
       if (epiIds.length > 0) {
         const epiAssignments = epiIds.map(epiId => ({
@@ -326,11 +329,11 @@ const ServiceOrders = () => {
         await supabase.from('service_order_epis').insert(epiAssignments);
       }
       
-      toast({ title: "Ordem iniciada!", description: "EPIs registrados com sucesso." });
+      toast({ title: "Ordem concluída!", description: "EPIs registrados com sucesso." });
       loadData();
     } catch (error) {
-      console.error('Erro ao iniciar ordem:', error);
-      toast({ title: "Erro", description: "Não foi possível iniciar a ordem.", variant: "destructive" });
+      console.error('Erro ao concluir ordem:', error);
+      toast({ title: "Erro", description: "Não foi possível concluir a ordem.", variant: "destructive" });
     }
   };
 
@@ -636,24 +639,14 @@ const ServiceOrders = () => {
                   <Badge className={getPriorityColor(order.priority)}>
                     {order.priority}
                   </Badge>
-                  {order.status === "Pendente" && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setOrderToStart(order.id);
-                        setStartOrderDialogOpen(true);
-                      }}
-                    >
-                      <Play className="h-4 w-4 mr-1" />
-                      Iniciar
-                    </Button>
-                  )}
                   {(order.status === "Em Andamento" || order.status === "Pendente") && (
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleChangeStatus(order.id, "Concluída")}
+                      onClick={() => {
+                        setOrderToComplete(order.id);
+                        setCompleteOrderDialogOpen(true);
+                      }}
                     >
                       <Check className="h-4 w-4 mr-1" />
                       Concluir
@@ -764,11 +757,11 @@ const ServiceOrders = () => {
         </AlertDialogContent>
       </AlertDialog>
 
-      <StartOrderDialog
-        open={startOrderDialogOpen}
-        onOpenChange={setStartOrderDialogOpen}
-        orderId={orderToStart || ''}
-        onStart={handleStartOrderWithEpis}
+      <CompleteOrderDialog
+        open={completeOrderDialogOpen}
+        onOpenChange={setCompleteOrderDialogOpen}
+        orderId={orderToComplete || ''}
+        onComplete={handleCompleteOrderWithEpis}
       />
     </div>
   );
