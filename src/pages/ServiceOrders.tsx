@@ -6,10 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Search, Edit2, Trash2, Clock, AlertCircle, CheckCircle2, ListChecks, FileDown, FileSpreadsheet, Check } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, Clock, AlertCircle, CheckCircle2, ListChecks, FileDown, FileSpreadsheet, Check, Play } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ServiceOrderDialog from "@/components/ServiceOrderDialog";
-import CompleteOrderDialog from "@/components/StartOrderDialog";
+import CompleteOrderDialog from "@/components/CompleteOrderDialog";
+import StartOrderDialog from "@/components/StartOrderDialog";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -60,6 +61,8 @@ const ServiceOrders = () => {
   const [loading, setLoading] = useState(true);
   const [completeOrderDialogOpen, setCompleteOrderDialogOpen] = useState(false);
   const [orderToComplete, setOrderToComplete] = useState<string | null>(null);
+  const [startOrderDialogOpen, setStartOrderDialogOpen] = useState(false);
+  const [orderToStart, setOrderToStart] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -334,6 +337,29 @@ const ServiceOrders = () => {
     } catch (error) {
       console.error('Erro ao concluir ordem:', error);
       toast({ title: "Erro", description: "Não foi possível concluir a ordem.", variant: "destructive" });
+    }
+  };
+
+  const handleStartOrderWithTechnicians = async (orderId: string, technicianIds: string[]) => {
+    try {
+      await supabase.from('service_orders').update({ status: 'Em Andamento' }).eq('id', orderId);
+      
+      // Remove existing technician assignments and add new ones
+      await supabase.from('service_order_technicians').delete().eq('service_order_id', orderId);
+      
+      if (technicianIds.length > 0) {
+        const techAssignments = technicianIds.map(techId => ({
+          service_order_id: orderId,
+          technician_id: techId,
+        }));
+        await supabase.from('service_order_technicians').insert(techAssignments);
+      }
+      
+      toast({ title: "Ordem iniciada!", description: "Técnicos atribuídos com sucesso." });
+      loadData();
+    } catch (error) {
+      console.error('Erro ao iniciar ordem:', error);
+      toast({ title: "Erro", description: "Não foi possível iniciar a ordem.", variant: "destructive" });
     }
   };
 
@@ -639,7 +665,20 @@ const ServiceOrders = () => {
                   <Badge className={getPriorityColor(order.priority)}>
                     {order.priority}
                   </Badge>
-                  {(order.status === "Em Andamento" || order.status === "Pendente") && (
+                  {order.status === "Pendente" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setOrderToStart(order.id);
+                        setStartOrderDialogOpen(true);
+                      }}
+                    >
+                      <Play className="h-4 w-4 mr-1" />
+                      Iniciar
+                    </Button>
+                  )}
+                  {order.status === "Em Andamento" && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -735,7 +774,6 @@ const ServiceOrders = () => {
         onOpenChange={handleCloseDialog}
         equipment={equipment}
         requesters={requesters}
-        technicians={technicians}
         order={editingOrder}
         onSave={handleSaveOrder}
       />
@@ -762,6 +800,14 @@ const ServiceOrders = () => {
         onOpenChange={setCompleteOrderDialogOpen}
         orderId={orderToComplete || ''}
         onComplete={handleCompleteOrderWithEpis}
+      />
+
+      <StartOrderDialog
+        open={startOrderDialogOpen}
+        onOpenChange={setStartOrderDialogOpen}
+        orderId={orderToStart || ''}
+        technicians={technicians}
+        onStart={handleStartOrderWithTechnicians}
       />
     </div>
   );
