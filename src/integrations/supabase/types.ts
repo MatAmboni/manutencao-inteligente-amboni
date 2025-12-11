@@ -16,18 +16,21 @@ export type Database = {
     Tables: {
       epis: {
         Row: {
+          category: string | null
           created_at: string | null
           description: string | null
           id: string
           name: string
         }
         Insert: {
+          category?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
           name: string
         }
         Update: {
+          category?: string | null
           created_at?: string | null
           description?: string | null
           id?: string
