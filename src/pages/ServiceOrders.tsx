@@ -43,6 +43,7 @@ interface ServiceOrder {
   assignedTechnicians: string[];
   createdAt: string;
   completedAt?: string;
+  usedEpis?: string[];
 }
 
 const ServiceOrders = () => {
@@ -58,11 +59,14 @@ const ServiceOrders = () => {
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [requesters, setRequesters] = useState<string[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
+  const [epis, setEpis] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [completeOrderDialogOpen, setCompleteOrderDialogOpen] = useState(false);
   const [orderToComplete, setOrderToComplete] = useState<string | null>(null);
   const [startOrderDialogOpen, setStartOrderDialogOpen] = useState(false);
   const [orderToStart, setOrderToStart] = useState<string | null>(null);
+  const [deleteHistoryDialogOpen, setDeleteHistoryDialogOpen] = useState(false);
+  const [orderToDeleteFromHistory, setOrderToDeleteFromHistory] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -108,6 +112,27 @@ const ServiceOrders = () => {
         return acc;
       }, {} as Record<string, string[]>);
 
+      // Load EPI assignments for each order
+      const { data: epiAssignmentsData } = await supabase
+        .from('service_order_epis')
+        .select('service_order_id, epi_id');
+
+      const episByOrder = (epiAssignmentsData || []).reduce((acc, assignment) => {
+        if (!acc[assignment.service_order_id]) {
+          acc[assignment.service_order_id] = [];
+        }
+        acc[assignment.service_order_id].push(assignment.epi_id);
+        return acc;
+      }, {} as Record<string, string[]>);
+
+      // Load all EPIs
+      const { data: episData } = await supabase
+        .from('epis')
+        .select('id, name')
+        .order('name');
+      
+      setEpis(episData || []);
+
       const formattedOrders: ServiceOrder[] = (ordersData || []).map(order => ({
         id: order.id,
         equipmentId: order.equipment_id,
@@ -123,6 +148,7 @@ const ServiceOrders = () => {
         assignedTechnicians: techniciansByOrder[order.id] || [],
         createdAt: order.created_at,
         completedAt: order.completed_at || undefined,
+        usedEpis: episByOrder[order.id] || [],
       }));
 
       setOrders(formattedOrders);
@@ -749,19 +775,62 @@ const ServiceOrders = () => {
               </p>
             ) : (
               maintenanceHistory.map((order) => (
-                <div key={order.id} className="flex items-center justify-between border-b pb-3 last:border-0">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">{order.id} - {order.equipment}</p>
-                    <p className="text-xs text-muted-foreground">{order.description}</p>
+                <div key={order.id} className="border rounded-lg p-4 space-y-3">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">{order.id} - {order.equipment}</p>
+                      <p className="text-xs text-muted-foreground">{order.description}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge className={getPriorityColor(order.priority)} variant="outline">
+                        {order.priority}
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setOrderToDeleteFromHistory(order.id);
+                          setDeleteHistoryDialogOpen(true);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="text-right space-y-1">
-                    <Badge className={getPriorityColor(order.priority)} variant="outline">
-                      {order.priority}
-                    </Badge>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(order.createdAt).toLocaleDateString('pt-BR')}
-                    </p>
+                  
+                  <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+                    <span>Concluído em: {order.completedAt ? new Date(order.completedAt).toLocaleDateString('pt-BR') : new Date(order.createdAt).toLocaleDateString('pt-BR')}</span>
+                    <span>•</span>
+                    <span>Setor: {order.sector}</span>
+                    <span>•</span>
+                    <span>Equipe: {order.executionTeam}</span>
                   </div>
+
+                  {order.assignedTechnicians.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-medium text-foreground">Técnicos:</span>
+                      {technicians
+                        .filter(t => order.assignedTechnicians.includes(t.id))
+                        .map(t => (
+                          <Badge key={t.id} variant="secondary" className="text-xs">
+                            {t.name}
+                          </Badge>
+                        ))}
+                    </div>
+                  )}
+
+                  {order.usedEpis && order.usedEpis.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-medium text-foreground">EPIs Utilizados:</span>
+                      {epis
+                        .filter(e => order.usedEpis?.includes(e.id))
+                        .map(e => (
+                          <Badge key={e.id} variant="outline" className="text-xs">
+                            {e.name}
+                          </Badge>
+                        ))}
+                    </div>
+                  )}
                 </div>
               ))
             )}
@@ -790,6 +859,38 @@ const ServiceOrders = () => {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteOrder} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={deleteHistoryDialogOpen} onOpenChange={setDeleteHistoryDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover do histórico</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja remover esta ordem do histórico? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={async () => {
+                if (orderToDeleteFromHistory) {
+                  try {
+                    await supabase.from('service_orders').delete().eq('id', orderToDeleteFromHistory);
+                    toast({ title: "Ordem removida!", description: "Ordem removida do histórico com sucesso." });
+                    loadData();
+                  } catch (error) {
+                    toast({ title: "Erro", description: "Não foi possível remover a ordem.", variant: "destructive" });
+                  }
+                }
+                setOrderToDeleteFromHistory(null);
+                setDeleteHistoryDialogOpen(false);
+              }} 
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Remover
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
