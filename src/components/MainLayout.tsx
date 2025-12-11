@@ -5,6 +5,7 @@ import {
   ClipboardList, 
   Wrench, 
   AlertTriangle,
+  Shield,
   Menu
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Ordens de Serviço", href: "/service-orders", icon: ClipboardList },
   { name: "Equipamentos", href: "/equipment", icon: Wrench },
+  { name: "EPIs", href: "/epis", icon: Shield },
   { name: "Análise de Riscos", href: "/risk-analysis", icon: AlertTriangle },
 ];
 
