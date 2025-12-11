@@ -4,16 +4,31 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Plus, Search, Edit2, Trash2, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+const EPI_CATEGORIES = [
+  { value: "cabeca", label: "Proteção da Cabeça" },
+  { value: "olhos", label: "Proteção dos Olhos e Face" },
+  { value: "auditiva", label: "Proteção Auditiva" },
+  { value: "respiratoria", label: "Proteção Respiratória" },
+  { value: "maos", label: "Proteção das Mãos" },
+  { value: "pes", label: "Proteção dos Pés" },
+  { value: "corpo", label: "Proteção do Corpo" },
+  { value: "quedas", label: "Proteção Contra Quedas" },
+  { value: "outros", label: "Outros" },
+];
+
 interface Epi {
   id: string;
   name: string;
   description: string | null;
+  category: string | null;
   createdAt: string;
 }
 
@@ -22,11 +37,12 @@ const Epis = () => {
   const [epis, setEpis] = useState<Epi[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterCategory, setFilterCategory] = useState<string>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [epiToDelete, setEpiToDelete] = useState<string | null>(null);
   const [editingEpi, setEditingEpi] = useState<Epi | null>(null);
-  const [formData, setFormData] = useState({ name: "", description: "" });
+  const [formData, setFormData] = useState({ name: "", description: "", category: "" });
 
   useEffect(() => {
     loadEpis();
@@ -45,6 +61,7 @@ const Epis = () => {
         id: epi.id,
         name: epi.name,
         description: epi.description,
+        category: epi.category,
         createdAt: epi.created_at || '',
       }));
 
@@ -64,10 +81,10 @@ const Epis = () => {
   const handleOpenDialog = (epi?: Epi) => {
     if (epi) {
       setEditingEpi(epi);
-      setFormData({ name: epi.name, description: epi.description || "" });
+      setFormData({ name: epi.name, description: epi.description || "", category: epi.category || "" });
     } else {
       setEditingEpi(null);
-      setFormData({ name: "", description: "" });
+      setFormData({ name: "", description: "", category: "" });
     }
     setDialogOpen(true);
   };
@@ -75,7 +92,7 @@ const Epis = () => {
   const handleCloseDialog = () => {
     setDialogOpen(false);
     setEditingEpi(null);
-    setFormData({ name: "", description: "" });
+    setFormData({ name: "", description: "", category: "" });
   };
 
   const handleSave = async () => {
@@ -95,6 +112,7 @@ const Epis = () => {
           .update({
             name: formData.name.trim(),
             description: formData.description.trim() || null,
+            category: formData.category || null,
           })
           .eq('id', editingEpi.id);
 
@@ -110,6 +128,7 @@ const Epis = () => {
           .insert({
             name: formData.name.trim(),
             description: formData.description.trim() || null,
+            category: formData.category || null,
           });
 
         if (error) throw error;
@@ -161,10 +180,17 @@ const Epis = () => {
     }
   };
 
-  const filteredEpis = epis.filter(epi =>
-    epi.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (epi.description && epi.description.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const filteredEpis = epis.filter(epi => {
+    const matchesSearch = epi.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (epi.description && epi.description.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesCategory = filterCategory === "all" || epi.category === filterCategory;
+    return matchesSearch && matchesCategory;
+  });
+
+  const getCategoryLabel = (categoryValue: string | null) => {
+    if (!categoryValue) return null;
+    return EPI_CATEGORIES.find(c => c.value === categoryValue)?.label || categoryValue;
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -209,20 +235,33 @@ const Epis = () => {
         </Card>
       </div>
 
-      {/* Busca */}
+      {/* Filtros */}
       <Card>
         <CardHeader>
-          <CardTitle>Buscar EPIs</CardTitle>
+          <CardTitle>Filtros</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar por nome ou descrição..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8"
-            />
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome ou descrição..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+            <Select value={filterCategory} onValueChange={setFilterCategory}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filtrar por categoria" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as Categorias</SelectItem>
+                {EPI_CATEGORIES.map(cat => (
+                  <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -266,6 +305,11 @@ const Epis = () => {
                 </div>
               </CardHeader>
               <CardContent>
+                {epi.category && (
+                  <Badge variant="secondary" className="mb-2">
+                    {getCategoryLabel(epi.category)}
+                  </Badge>
+                )}
                 <p className="text-sm text-muted-foreground">
                   {epi.description || "Sem descrição"}
                 </p>
@@ -293,6 +337,19 @@ const Epis = () => {
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="category">Categoria</Label>
+              <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione uma categoria" />
+                </SelectTrigger>
+                <SelectContent>
+                  {EPI_CATEGORIES.map(cat => (
+                    <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">Descrição</Label>
