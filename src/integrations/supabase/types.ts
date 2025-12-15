@@ -101,6 +101,53 @@ export type Database = {
         }
         Relationships: []
       }
+      risks: {
+        Row: {
+          created_at: string
+          description: string
+          equipment_id: string
+          id: string
+          identified_at: string
+          recommendation: string
+          resolved_at: string | null
+          risk_level: string
+          status: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          equipment_id: string
+          id?: string
+          identified_at?: string
+          recommendation: string
+          resolved_at?: string | null
+          risk_level: string
+          status?: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          equipment_id?: string
+          id?: string
+          identified_at?: string
+          recommendation?: string
+          resolved_at?: string | null
+          risk_level?: string
+          status?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risks_equipment_id_fkey"
+            columns: ["equipment_id"]
+            isOneToOne: false
+            referencedRelation: "equipment"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_order_epis: {
         Row: {
           created_at: string | null
