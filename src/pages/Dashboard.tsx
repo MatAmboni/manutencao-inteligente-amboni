@@ -1,181 +1,206 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ClipboardList, Wrench, AlertTriangle, CheckCircle2, TrendingUp, BarChart3 } from "lucide-react";
+import { ClipboardList, Wrench, AlertTriangle, CheckCircle2, TrendingUp, BarChart3, Loader2 } from "lucide-react";
 import { BarChart, Bar, PieChart, Pie, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts";
+import { supabase } from "@/integrations/supabase/client";
+import { format, differenceInDays, startOfMonth, endOfMonth } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface ServiceOrder {
   id: string;
-  equipment: string;
-  description: string;
-  status: "Pendente" | "Em Andamento" | "Concluída";
-  priority: "Baixa" | "Média" | "Alta";
-  sector: "Elétrico" | "Mecânico";
-  executionTeam: "Interna" | "Externa";
-  requestDate: string;
-  suggestedDeadline: string;
+  equipment_id: string;
+  description: string | null;
+  status: string;
+  priority: string;
+  sector: string;
+  execution_team: string;
+  request_date: string;
+  suggested_deadline: string;
   requester: string;
-  createdAt: string;
-  completedAt?: string;
+  created_at: string | null;
+  completed_at: string | null;
+  equipment?: { name: string };
+}
+
+interface Risk {
+  id: string;
+  equipment_id: string;
+  description: string;
+  risk_level: string;
+  type: string;
+  status: string;
+  equipment?: { name: string };
+}
+
+interface Equipment {
+  id: string;
+  name: string;
+  status: string;
 }
 
 const Dashboard = () => {
-  // Dados das ordens de serviço
-  const orders: ServiceOrder[] = [
-    {
-      id: "OS-001",
-      equipment: "Compressor 01",
-      description: "Manutenção preventiva do sistema de refrigeração",
-      status: "Concluída",
-      priority: "Alta",
-      sector: "Mecânico",
-      executionTeam: "Interna",
-      requestDate: "2024-01-15",
-      suggestedDeadline: "2024-01-20",
-      requester: "João Silva",
-      createdAt: "2024-01-15",
-      completedAt: "2024-01-19",
-    },
-    {
-      id: "OS-002",
-      equipment: "Motor Elétrico 03",
-      description: "Verificação de conexões e substituição de rolamentos",
-      status: "Pendente",
-      priority: "Média",
-      sector: "Elétrico",
-      executionTeam: "Externa",
-      requestDate: "2024-01-14",
-      suggestedDeadline: "2024-01-18",
-      requester: "Maria Santos",
-      createdAt: "2024-01-14",
-    },
-    {
-      id: "OS-003",
-      equipment: "Painel de Controle",
-      description: "Atualização de firmware e teste de segurança",
-      status: "Em Andamento",
-      priority: "Alta",
-      sector: "Elétrico",
-      executionTeam: "Interna",
-      requestDate: "2024-01-13",
-      suggestedDeadline: "2024-01-17",
-      requester: "Carlos Oliveira",
-      createdAt: "2024-01-13",
-    },
-    {
-      id: "OS-004",
-      equipment: "Válvula de Pressão 5",
-      description: "Calibração e teste de vazão",
-      status: "Concluída",
-      priority: "Média",
-      sector: "Mecânico",
-      executionTeam: "Interna",
-      requestDate: "2024-01-10",
-      suggestedDeadline: "2024-01-15",
-      requester: "Ana Costa",
-      createdAt: "2024-01-10",
-      completedAt: "2024-01-14",
-    },
-    {
-      id: "OS-005",
-      equipment: "Bomba Hidráulica 2",
-      description: "Troca de vedações",
-      status: "Concluída",
-      priority: "Baixa",
-      sector: "Mecânico",
-      executionTeam: "Interna",
-      requestDate: "2024-01-08",
-      suggestedDeadline: "2024-01-12",
-      requester: "Pedro Lima",
-      createdAt: "2024-01-08",
-      completedAt: "2024-01-11",
-    },
-    {
-      id: "OS-006",
-      equipment: "Transformador A2",
-      description: "Inspeção elétrica completa",
-      status: "Em Andamento",
-      priority: "Alta",
-      sector: "Elétrico",
-      executionTeam: "Externa",
-      requestDate: "2024-01-16",
-      suggestedDeadline: "2024-01-21",
-      requester: "Mariana Souza",
-      createdAt: "2024-01-16",
-    },
-  ];
+  const [orders, setOrders] = useState<ServiceOrder[]>([]);
+  const [risks, setRisks] = useState<Risk[]>([]);
+  const [equipment, setEquipment] = useState<Equipment[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      // Fetch all data in parallel
+      const [ordersRes, risksRes, equipmentRes] = await Promise.all([
+        supabase
+          .from('service_orders')
+          .select('*, equipment:equipment_id(name)')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('risks')
+          .select('*, equipment:equipment_id(name)')
+          .eq('status', 'Ativo')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('equipment')
+          .select('*')
+      ]);
+
+      if (ordersRes.data) setOrders(ordersRes.data);
+      if (risksRes.data) setRisks(risksRes.data);
+      if (equipmentRes.data) setEquipment(equipmentRes.data);
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Calculate statistics
+  const now = new Date();
+  const monthStart = startOfMonth(now);
+  const monthEnd = endOfMonth(now);
+
+  const openOrders = orders.filter(o => o.status !== "Concluída").length;
+  const activeEquipment = equipment.filter(e => e.status === "Ativo").length;
+  const activeRisks = risks.length;
+  const completedThisMonth = orders.filter(o => {
+    if (o.status !== "Concluída" || !o.completed_at) return false;
+    const completedDate = new Date(o.completed_at);
+    return completedDate >= monthStart && completedDate <= monthEnd;
+  }).length;
 
   const stats = [
     {
       title: "Ordens Abertas",
-      value: orders.filter(o => o.status !== "Concluída").length.toString(),
+      value: openOrders.toString(),
       icon: ClipboardList,
       color: "text-primary",
     },
     {
       title: "Equipamentos Ativos",
-      value: "45",
+      value: activeEquipment.toString(),
       icon: Wrench,
       color: "text-success",
     },
     {
-      title: "Riscos Identificados",
-      value: "8",
+      title: "Riscos Ativos",
+      value: activeRisks.toString(),
       icon: AlertTriangle,
       color: "text-warning",
     },
     {
       title: "Concluídas (Mês)",
-      value: orders.filter(o => o.status === "Concluída").length.toString(),
+      value: completedThisMonth.toString(),
       icon: CheckCircle2,
       color: "text-success",
     },
   ];
 
-  // Cálculo do tempo médio de conclusão
-  const completedOrders = orders.filter(o => o.status === "Concluída" && o.completedAt);
+  // Calculate average completion time
+  const completedOrders = orders.filter(o => o.status === "Concluída" && o.completed_at && o.created_at);
   const averageCompletionTime = completedOrders.length > 0
     ? completedOrders.reduce((acc, order) => {
-        const start = new Date(order.createdAt).getTime();
-        const end = new Date(order.completedAt!).getTime();
-        const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+        const start = new Date(order.created_at!).getTime();
+        const end = new Date(order.completed_at!).getTime();
+        const days = Math.max(1, differenceInDays(end, start));
         return acc + days;
       }, 0) / completedOrders.length
     : 0;
 
-  // Dados para gráfico de prioridade
+  // Priority distribution data
   const priorityData = [
     { name: "Alta", value: orders.filter(o => o.priority === "Alta").length, fill: "hsl(var(--destructive))" },
     { name: "Média", value: orders.filter(o => o.priority === "Média").length, fill: "hsl(var(--warning))" },
     { name: "Baixa", value: orders.filter(o => o.priority === "Baixa").length, fill: "hsl(var(--success))" },
-  ];
+  ].filter(d => d.value > 0);
 
-  // Dados para gráfico de status
+  // Status distribution data
   const statusData = [
     { name: "Pendente", value: orders.filter(o => o.status === "Pendente").length, fill: "hsl(var(--warning))" },
     { name: "Em Andamento", value: orders.filter(o => o.status === "Em Andamento").length, fill: "hsl(var(--primary))" },
     { name: "Concluída", value: orders.filter(o => o.status === "Concluída").length, fill: "hsl(var(--success))" },
-  ];
+  ].filter(d => d.value > 0);
 
-  // Dados para gráfico de tempo
+  // Timeline data - group by date
   const timelineData = (() => {
-    const data: { [key: string]: { date: string; pendente: number; andamento: number; concluida: number } } = {};
+    const data: { [key: string]: { date: string; pendente: number; andamento: number; concluida: number; sortDate: Date } } = {};
     
     orders.forEach(order => {
-      const date = new Date(order.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-      if (!data[date]) {
-        data[date] = { date, pendente: 0, andamento: 0, concluida: 0 };
+      if (!order.created_at) return;
+      const orderDate = new Date(order.created_at);
+      const dateKey = format(orderDate, 'dd/MM', { locale: ptBR });
+      
+      if (!data[dateKey]) {
+        data[dateKey] = { date: dateKey, pendente: 0, andamento: 0, concluida: 0, sortDate: orderDate };
       }
       
-      if (order.status === "Pendente") data[date].pendente++;
-      else if (order.status === "Em Andamento") data[date].andamento++;
-      else if (order.status === "Concluída") data[date].concluida++;
+      if (order.status === "Pendente") data[dateKey].pendente++;
+      else if (order.status === "Em Andamento") data[dateKey].andamento++;
+      else if (order.status === "Concluída") data[dateKey].concluida++;
     });
 
-    return Object.values(data).sort((a, b) => {
-      const [dayA, monthA] = a.date.split('/').map(Number);
-      const [dayB, monthB] = b.date.split('/').map(Number);
-      return monthA === monthB ? dayA - dayB : monthA - monthB;
-    });
+    return Object.values(data)
+      .sort((a, b) => a.sortDate.getTime() - b.sortDate.getTime())
+      .slice(-10) // Last 10 dates
+      .map(({ sortDate, ...rest }) => rest);
   })();
+
+  // Recent orders (last 5)
+  const recentOrders = orders.slice(0, 5);
+
+  // Critical/High risks
+  const criticalRisks = risks
+    .filter(r => r.risk_level === "Crítico" || r.risk_level === "Alto")
+    .slice(0, 5);
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "Pendente": return "bg-warning text-warning-foreground";
+      case "Em Andamento": return "bg-primary text-primary-foreground";
+      case "Concluída": return "bg-success text-success-foreground";
+      default: return "bg-muted text-muted-foreground";
+    }
+  };
+
+  const getRiskColor = (level: string) => {
+    switch (level) {
+      case "Crítico": return "bg-destructive text-destructive-foreground";
+      case "Alto": return "bg-destructive text-destructive-foreground";
+      case "Médio": return "bg-warning text-warning-foreground";
+      case "Baixo": return "bg-success text-success-foreground";
+      default: return "bg-muted text-muted-foreground";
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -232,24 +257,30 @@ const Dashboard = () => {
               <CardTitle className="text-base">Distribuição por Prioridade</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie
-                    data={priorityData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, value }) => `${name}: ${value}`}
-                    outerRadius={80}
-                    dataKey="value"
-                  >
-                    {priorityData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.fill} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+              {priorityData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie
+                      data={priorityData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, value }) => `${name}: ${value}`}
+                      outerRadius={80}
+                      dataKey="value"
+                    >
+                      {priorityData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[200px] flex items-center justify-center text-muted-foreground">
+                  Sem dados disponíveis
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -259,25 +290,31 @@ const Dashboard = () => {
               <CardTitle className="text-base">Ordens por Status</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={statusData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
-                  <YAxis stroke="hsl(var(--muted-foreground))" />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: "hsl(var(--card))", 
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "var(--radius)"
-                    }}
-                  />
-                  <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-                    {statusData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.fill} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+              {statusData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={statusData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
+                    <YAxis stroke="hsl(var(--muted-foreground))" />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: "hsl(var(--card))", 
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "var(--radius)"
+                      }}
+                    />
+                    <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+                      {statusData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[250px] flex items-center justify-center text-muted-foreground">
+                  Sem dados disponíveis
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -287,42 +324,48 @@ const Dashboard = () => {
               <CardTitle className="text-base">Status ao Longo do Tempo</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={250}>
-                <LineChart data={timelineData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" />
-                  <YAxis stroke="hsl(var(--muted-foreground))" />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: "hsl(var(--card))", 
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "var(--radius)"
-                    }}
-                  />
-                  <Legend />
-                  <Line 
-                    type="monotone" 
-                    dataKey="pendente" 
-                    stroke="hsl(var(--warning))" 
-                    strokeWidth={2}
-                    name="Pendente"
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="andamento" 
-                    stroke="hsl(var(--primary))" 
-                    strokeWidth={2}
-                    name="Em Andamento"
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="concluida" 
-                    stroke="hsl(var(--success))" 
-                    strokeWidth={2}
-                    name="Concluída"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              {timelineData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={250}>
+                  <LineChart data={timelineData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" />
+                    <YAxis stroke="hsl(var(--muted-foreground))" />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: "hsl(var(--card))", 
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "var(--radius)"
+                      }}
+                    />
+                    <Legend />
+                    <Line 
+                      type="monotone" 
+                      dataKey="pendente" 
+                      stroke="hsl(var(--warning))" 
+                      strokeWidth={2}
+                      name="Pendente"
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="andamento" 
+                      stroke="hsl(var(--primary))" 
+                      strokeWidth={2}
+                      name="Em Andamento"
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="concluida" 
+                      stroke="hsl(var(--success))" 
+                      strokeWidth={2}
+                      name="Concluída"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[250px] flex items-center justify-center text-muted-foreground">
+                  Sem dados disponíveis
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -335,20 +378,30 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {orders.slice(0, 3).map((order) => (
-                <div
-                  key={order.id}
-                  className="flex items-center justify-between p-3 bg-muted rounded-lg"
-                >
-                  <div>
-                    <p className="font-medium text-foreground">{order.id}</p>
-                    <p className="text-sm text-muted-foreground">{order.equipment}</p>
+              {recentOrders.length > 0 ? (
+                recentOrders.map((order) => (
+                  <div
+                    key={order.id}
+                    className="flex items-center justify-between p-3 bg-muted rounded-lg"
+                  >
+                    <div>
+                      <p className="font-medium text-foreground">
+                        {order.equipment?.name || 'Equipamento não encontrado'}
+                      </p>
+                      <p className="text-sm text-muted-foreground line-clamp-1">
+                        {order.description || 'Sem descrição'}
+                      </p>
+                    </div>
+                    <span className={`px-3 py-1 text-xs font-medium rounded-full ${getStatusColor(order.status)}`}>
+                      {order.status}
+                    </span>
                   </div>
-                  <span className="px-3 py-1 text-xs font-medium bg-primary text-primary-foreground rounded-full">
-                    {order.status}
-                  </span>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-muted-foreground text-center py-4">
+                  Nenhuma ordem de serviço encontrada
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -359,30 +412,28 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {[
-                { equip: "Transformador A2", risk: "Alto", type: "Elétrico" },
-                { equip: "Válvula de Pressão 5", risk: "Médio", type: "Mecânico" },
-                { equip: "Disjuntor Principal", risk: "Alto", type: "Elétrico" },
-              ].map((alert, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between p-3 bg-muted rounded-lg"
-                >
-                  <div>
-                    <p className="font-medium text-foreground">{alert.equip}</p>
-                    <p className="text-sm text-muted-foreground">{alert.type}</p>
-                  </div>
-                  <span
-                    className={`px-3 py-1 text-xs font-medium rounded-full ${
-                      alert.risk === "Alto"
-                        ? "bg-destructive text-destructive-foreground"
-                        : "bg-warning text-warning-foreground"
-                    }`}
+              {criticalRisks.length > 0 ? (
+                criticalRisks.map((risk) => (
+                  <div
+                    key={risk.id}
+                    className="flex items-center justify-between p-3 bg-muted rounded-lg"
                   >
-                    {alert.risk}
-                  </span>
-                </div>
-              ))}
+                    <div>
+                      <p className="font-medium text-foreground">
+                        {risk.equipment?.name || 'Equipamento não encontrado'}
+                      </p>
+                      <p className="text-sm text-muted-foreground">{risk.type}</p>
+                    </div>
+                    <span className={`px-3 py-1 text-xs font-medium rounded-full ${getRiskColor(risk.risk_level)}`}>
+                      {risk.risk_level}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-muted-foreground text-center py-4">
+                  Nenhum risco crítico ou alto ativo
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
