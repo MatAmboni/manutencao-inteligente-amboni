@@ -11,7 +11,7 @@ import {
   PanelLeftClose,
   PanelLeft,
   LogOut,
-  User,
+  Users,
   ClipboardCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,7 @@ const adminNavigation = [
   { name: "Equipamentos", href: "/equipment", icon: Wrench },
   { name: "EPIs", href: "/epis", icon: Shield },
   { name: "Análise de Riscos", href: "/risk-analysis", icon: AlertTriangle },
+  { name: "Usuários", href: "/users", icon: Users },
 ];
 
 const employeeNavigation = [
@@ -52,8 +53,21 @@ const MainLayout = ({ children }: MainLayoutProps) => {
 
   const navigation = isAdmin ? adminNavigation : employeeNavigation;
 
-  const getInitials = (email: string) => {
-    return email.substring(0, 2).toUpperCase();
+  const getUserDisplayName = () => {
+    if (user?.user_metadata?.username) {
+      return user.user_metadata.username;
+    }
+    if (user?.user_metadata?.full_name) {
+      return user.user_metadata.full_name;
+    }
+    if (user?.email) {
+      return user.email.split('@')[0];
+    }
+    return 'Usuário';
+  };
+
+  const getInitials = (name: string) => {
+    return name.substring(0, 2).toUpperCase();
   };
 
   const NavLinks = ({ showText = true }: { showText?: boolean }) => (
@@ -107,12 +121,12 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         >
           <Avatar className="h-8 w-8">
             <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-              {user?.email ? getInitials(user.email) : 'U'}
+              {getInitials(getUserDisplayName())}
             </AvatarFallback>
           </Avatar>
           {!collapsed && (
             <div className="flex-1 text-left overflow-hidden">
-              <p className="text-sm font-medium truncate">{user?.email}</p>
+              <p className="text-sm font-medium truncate">{getUserDisplayName()}</p>
               <Badge variant="outline" className="text-xs mt-0.5">
                 {isAdmin ? 'Admin' : 'Funcionário'}
               </Badge>
@@ -122,7 +136,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <div className="px-2 py-1.5">
-          <p className="text-sm font-medium">{user?.email}</p>
+          <p className="text-sm font-medium">{getUserDisplayName()}</p>
           <p className="text-xs text-muted-foreground">
             {isAdmin ? 'Administrador' : 'Funcionário'}
           </p>
