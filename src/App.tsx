@@ -12,6 +12,7 @@ import Equipment from "./pages/Equipment";
 import RiskAnalysis from "./pages/RiskAnalysis";
 import Epis from "./pages/Epis";
 import MyOrders from "./pages/MyOrders";
+import UserManagement from "./pages/UserManagement";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -83,6 +84,14 @@ const App = () => (
                   <MainLayout>
                     <Epis />
                   </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/users"
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <UserManagement />
                 </ProtectedRoute>
               }
             />
