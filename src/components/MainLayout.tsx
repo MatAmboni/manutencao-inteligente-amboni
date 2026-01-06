@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { 
   LayoutDashboard, 
@@ -12,7 +12,8 @@ import {
   PanelLeft,
   LogOut,
   Users,
-  ClipboardCheck
+  ClipboardCheck,
+  User
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -141,6 +142,13 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             {isAdmin ? 'Administrador' : 'Funcionário'}
           </p>
         </div>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild className="cursor-pointer">
+          <Link to="/profile">
+            <User className="mr-2 h-4 w-4" />
+            Meu Perfil
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={signOut} className="text-destructive cursor-pointer">
           <LogOut className="mr-2 h-4 w-4" />

@@ -13,6 +13,7 @@ import RiskAnalysis from "./pages/RiskAnalysis";
 import Epis from "./pages/Epis";
 import MyOrders from "./pages/MyOrders";
 import UserManagement from "./pages/UserManagement";
+import Profile from "./pages/Profile";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
@@ -92,6 +93,14 @@ const App = () => (
               element={
                 <ProtectedRoute requiredRole="admin">
                   <UserManagement />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <Profile />
                 </ProtectedRoute>
               }
             />
