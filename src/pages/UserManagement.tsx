@@ -9,10 +9,11 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus, Users, Trash2, AlertTriangle } from 'lucide-react';
+import { Loader2, Plus, Users, Trash2, AlertTriangle, KeyRound } from 'lucide-react';
 import { z } from 'zod';
 
 const createUserSchema = z.object({
@@ -20,6 +21,14 @@ const createUserSchema = z.object({
   fullName: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
   password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
   role: z.enum(['admin', 'employee']),
+});
+
+const passwordSchema = z.object({
+  newPassword: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
+  confirmPassword: z.string().min(6, 'Confirme a senha'),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "As senhas não coincidem",
+  path: ["confirmPassword"],
 });
 
 interface User {
@@ -32,7 +41,7 @@ interface User {
 }
 
 const UserManagement = () => {
-  const { session } = useAuth();
+  const { session, user: currentUser } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -45,6 +54,16 @@ const UserManagement = () => {
     role: 'employee' as 'admin' | 'employee',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Password change state
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [passwordData, setPasswordData] = useState({ newPassword: '', confirmPassword: '' });
+  const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({});
+
+  // Delete confirmation state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
   const { data: users, isLoading } = useQuery({
     queryKey: ['users'],
@@ -81,6 +100,61 @@ const UserManagement = () => {
     onError: (error: Error) => {
       toast({
         title: 'Erro ao criar usuário',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const updatePasswordMutation = useMutation({
+    mutationFn: async ({ userId, newPassword }: { userId: string; newPassword: string }) => {
+      const { data, error } = await supabase.functions.invoke('manage-users', {
+        body: {
+          action: 'update-password',
+          userId,
+          newPassword,
+        },
+      });
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      toast({ title: 'Senha alterada com sucesso!' });
+      setPasswordDialogOpen(false);
+      setSelectedUser(null);
+      setPasswordData({ newPassword: '', confirmPassword: '' });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Erro ao alterar senha',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const { data, error } = await supabase.functions.invoke('manage-users', {
+        body: {
+          action: 'delete',
+          userId,
+        },
+      });
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      toast({ title: 'Usuário removido com sucesso!' });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      setDeleteDialogOpen(false);
+      setUserToDelete(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Erro ao remover usuário',
         description: error.message,
         variant: 'destructive',
       });
@@ -126,6 +200,45 @@ const UserManagement = () => {
     }
 
     createUserMutation.mutate(formData);
+  };
+
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordErrors({});
+
+    const result = passwordSchema.safeParse(passwordData);
+    if (!result.success) {
+      const fieldErrors: Record<string, string> = {};
+      result.error.errors.forEach((err) => {
+        if (err.path[0]) {
+          fieldErrors[err.path[0] as string] = err.message;
+        }
+      });
+      setPasswordErrors(fieldErrors);
+      return;
+    }
+
+    if (selectedUser) {
+      updatePasswordMutation.mutate({ userId: selectedUser.id, newPassword: passwordData.newPassword });
+    }
+  };
+
+  const openPasswordDialog = (user: User) => {
+    setSelectedUser(user);
+    setPasswordData({ newPassword: '', confirmPassword: '' });
+    setPasswordErrors({});
+    setPasswordDialogOpen(true);
+  };
+
+  const openDeleteDialog = (user: User) => {
+    setUserToDelete(user);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (userToDelete) {
+      deleteUserMutation.mutate(userToDelete.id);
+    }
   };
 
   return (
@@ -184,6 +297,7 @@ const UserManagement = () => {
                     <TableHead>Nome</TableHead>
                     <TableHead>Função</TableHead>
                     <TableHead>Criado em</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -199,6 +313,26 @@ const UserManagement = () => {
                       <TableCell>
                         {new Date(user.created_at).toLocaleDateString('pt-BR')}
                       </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openPasswordDialog(user)}
+                          >
+                            <KeyRound className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openDeleteDialog(user)}
+                            disabled={user.id === currentUser?.id}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -213,6 +347,7 @@ const UserManagement = () => {
           </CardContent>
         </Card>
 
+        {/* Create User Dialog */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent>
             <DialogHeader>
@@ -284,6 +419,87 @@ const UserManagement = () => {
             </form>
           </DialogContent>
         </Dialog>
+
+        {/* Change Password Dialog */}
+        <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Alterar Senha</DialogTitle>
+              <DialogDescription>
+                Digite a nova senha para {selectedUser?.full_name}
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handlePasswordSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="newPassword">Nova senha</Label>
+                <Input
+                  id="newPassword"
+                  type="password"
+                  placeholder="••••••••"
+                  value={passwordData.newPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                />
+                {passwordErrors.newPassword && <p className="text-sm text-destructive">{passwordErrors.newPassword}</p>}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirmar senha</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  placeholder="••••••••"
+                  value={passwordData.confirmPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                />
+                {passwordErrors.confirmPassword && <p className="text-sm text-destructive">{passwordErrors.confirmPassword}</p>}
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setPasswordDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={updatePasswordMutation.isPending}>
+                  {updatePasswordMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    'Alterar Senha'
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+              <AlertDialogDescription>
+                Tem certeza que deseja remover o usuário <strong>{userToDelete?.full_name}</strong>? 
+                Esta ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteConfirm}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={deleteUserMutation.isPending}
+              >
+                {deleteUserMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Removendo...
+                  </>
+                ) : (
+                  'Remover'
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </MainLayout>
   );
