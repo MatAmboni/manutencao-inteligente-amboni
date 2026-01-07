@@ -17,26 +17,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
-import { Check, ChevronsUpDown } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 interface Equipment {
   id: string;
   name: string;
   type: "Elétrico" | "Mecânico";
+}
+
+interface AdminUser {
+  id: string;
+  full_name: string;
 }
 
 interface ServiceOrder {
@@ -59,7 +50,7 @@ interface ServiceOrderDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   equipment: Equipment[];
-  requesters: string[];
+  adminUsers: AdminUser[];
   order?: ServiceOrder;
   onSave: (order: {
     equipment: string;
@@ -75,7 +66,7 @@ interface ServiceOrderDialogProps {
   }) => void;
 }
 
-const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, order, onSave }: ServiceOrderDialogProps) => {
+const ServiceOrderDialog = ({ open, onOpenChange, equipment, adminUsers, order, onSave }: ServiceOrderDialogProps) => {
   const { toast } = useToast();
   const [formData, setFormData] = useState({
     equipment: "",
@@ -88,13 +79,6 @@ const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, order, 
     suggestedDeadline: "",
     requester: "",
   });
-  const [requesterOpen, setRequesterOpen] = useState(false);
-  const [availableRequesters, setAvailableRequesters] = useState<string[]>(requesters);
-  const [newRequester, setNewRequester] = useState("");
-
-  useEffect(() => {
-    setAvailableRequesters(requesters);
-  }, [requesters]);
 
   useEffect(() => {
     if (order && open) {
@@ -155,19 +139,6 @@ const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, order, 
     });
     
     onOpenChange(false);
-  };
-
-  const handleRequesterSelect = (requester: string) => {
-    if (requester === "add-new" && newRequester.trim()) {
-      if (!availableRequesters.includes(newRequester.trim())) {
-        setAvailableRequesters([...availableRequesters, newRequester.trim()]);
-      }
-      setFormData({ ...formData, requester: newRequester.trim() });
-      setNewRequester("");
-    } else {
-      setFormData({ ...formData, requester });
-    }
-    setRequesterOpen(false);
   };
 
   return (
@@ -288,58 +259,24 @@ const ServiceOrderDialog = ({ open, onOpenChange, equipment, requesters, order, 
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="requester">Solicitante *</Label>
-            <Popover open={requesterOpen} onOpenChange={setRequesterOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={requesterOpen}
-                  className="w-full justify-between"
-                >
-                  {formData.requester || "Selecione o solicitante"}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-full p-0">
-                <Command>
-                  <CommandInput 
-                    placeholder="Buscar ou adicionar solicitante..." 
-                    value={newRequester}
-                    onValueChange={setNewRequester}
-                  />
-                  <CommandEmpty>
-                    <div className="p-2">
-                      <Button
-                        variant="ghost"
-                        className="w-full justify-start"
-                        onClick={() => handleRequesterSelect("add-new")}
-                      >
-                        <Check className="mr-2 h-4 w-4 opacity-0" />
-                        Adicionar "{newRequester}"
-                      </Button>
-                    </div>
-                  </CommandEmpty>
-                  <CommandGroup>
-                    {availableRequesters.map((requester) => (
-                      <CommandItem
-                        key={requester}
-                        value={requester}
-                        onSelect={() => handleRequesterSelect(requester)}
-                      >
-                        <Check
-                          className={cn(
-                            "mr-2 h-4 w-4",
-                            formData.requester === requester ? "opacity-100" : "opacity-0"
-                          )}
-                        />
-                        {requester}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </Command>
-              </PopoverContent>
-            </Popover>
+            <Label htmlFor="requester">Solicitante (Administrador) *</Label>
+            <Select
+              value={formData.requester}
+              onValueChange={(value) =>
+                setFormData({ ...formData, requester: value })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o solicitante" />
+              </SelectTrigger>
+              <SelectContent>
+                {adminUsers.map((admin) => (
+                  <SelectItem key={admin.id} value={admin.full_name}>
+                    {admin.full_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
