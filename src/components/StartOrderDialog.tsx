@@ -16,6 +16,7 @@ import { Play, AlertTriangle } from "lucide-react";
 interface Technician {
   id: string;
   name: string;
+  user_id?: string;
 }
 
 interface StartOrderDialogProps {

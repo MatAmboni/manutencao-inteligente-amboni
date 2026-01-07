@@ -26,6 +26,12 @@ interface Equipment {
 interface Technician {
   id: string;
   name: string;
+  user_id?: string;
+}
+
+interface AdminUser {
+  id: string;
+  full_name: string;
 }
 
 interface ServiceOrder {
@@ -57,7 +63,7 @@ const ServiceOrders = () => {
   const [filterPriority, setFilterPriority] = useState<string>("all");
   const [orders, setOrders] = useState<ServiceOrder[]>([]);
   const [equipment, setEquipment] = useState<Equipment[]>([]);
-  const [requesters, setRequesters] = useState<string[]>([]);
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
   const [technicians, setTechnicians] = useState<Technician[]>([]);
   const [epis, setEpis] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -153,20 +159,29 @@ const ServiceOrders = () => {
 
       setOrders(formattedOrders);
 
-      // Load requesters
-      const { data: requestersData, error: requestersError } = await supabase
-        .from('requesters')
-        .select('name')
-        .order('name');
+      // Load admin users as requesters
+      const { data: adminData, error: adminError } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'admin');
 
-      if (requestersError) throw requestersError;
+      if (adminError) throw adminError;
 
-      setRequesters(requestersData?.map(r => r.name) || []);
+      if (adminData && adminData.length > 0) {
+        const adminIds = adminData.map(a => a.user_id);
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', adminIds);
 
-      // Load technicians
+        if (profilesError) throw profilesError;
+        setAdminUsers(profilesData || []);
+      }
+
+      // Load technicians (employees)
       const { data: techniciansData, error: techniciansError } = await supabase
         .from('technicians')
-        .select('id, name')
+        .select('id, name, user_id')
         .order('name');
 
       if (techniciansError) throw techniciansError;
@@ -842,7 +857,7 @@ const ServiceOrders = () => {
         open={dialogOpen} 
         onOpenChange={handleCloseDialog}
         equipment={equipment}
-        requesters={requesters}
+        adminUsers={adminUsers}
         order={editingOrder}
         onSave={handleSaveOrder}
       />
