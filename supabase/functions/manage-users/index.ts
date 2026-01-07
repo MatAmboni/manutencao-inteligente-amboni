@@ -55,7 +55,7 @@ serve(async (req) => {
       })
     }
 
-    const { action, username, password, fullName, role } = await req.json()
+    const { action, username, password, fullName, role, userId, newPassword } = await req.json()
 
     if (action === 'create') {
       // Create user with username as email format
@@ -150,7 +150,12 @@ serve(async (req) => {
     }
 
     if (action === 'delete') {
-      const { userId } = await req.json()
+      if (!userId) {
+        return new Response(JSON.stringify({ error: 'userId is required' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
       
       if (userId === user.id) {
         return new Response(JSON.stringify({ error: 'Cannot delete yourself' }), {
@@ -159,15 +164,54 @@ serve(async (req) => {
         })
       }
 
+      console.log('Deleting user:', userId)
+
       const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId)
       
       if (deleteError) {
+        console.error('Delete error:', deleteError)
         return new Response(JSON.stringify({ error: deleteError.message }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
       }
 
+      console.log('User deleted successfully')
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    if (action === 'update-password') {
+      if (!userId || !newPassword) {
+        return new Response(JSON.stringify({ error: 'userId and newPassword are required' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
+
+      if (newPassword.length < 6) {
+        return new Response(JSON.stringify({ error: 'Password must be at least 6 characters' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
+
+      console.log('Updating password for user:', userId)
+
+      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        password: newPassword
+      })
+      
+      if (updateError) {
+        console.error('Update password error:', updateError)
+        return new Response(JSON.stringify({ error: updateError.message }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
+
+      console.log('Password updated successfully')
       return new Response(JSON.stringify({ success: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
