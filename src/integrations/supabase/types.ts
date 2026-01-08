@@ -339,6 +339,150 @@ export type Database = {
         }
         Relationships: []
       }
+      work_entry_permits: {
+        Row: {
+          ambulance_contact: string | null
+          authorized_workers: string[]
+          communication_procedure: string | null
+          company_name: string
+          confined_space_location: string
+          confined_space_number: string | null
+          continuous_monitoring: string | null
+          created_at: string
+          end_datetime: string | null
+          entry_supervisor: string
+          equipment_checklist: Json | null
+          fire_department_contact: string | null
+          general_lighting: string | null
+          guard: string
+          hot_work_permit: string | null
+          id: string
+          initial_dust_mg: number | null
+          initial_flammable_percent: number | null
+          initial_oxygen_percent: number | null
+          initial_test_time: string | null
+          initial_toxic_ppm: number | null
+          isolation_completed: boolean | null
+          issue_datetime: string
+          lockout_tagout: string | null
+          notes: string | null
+          post_dust_mg: number | null
+          post_flammable_ok: string | null
+          post_flammable_percent: number | null
+          post_oxygen_ok: string | null
+          post_oxygen_percent: number | null
+          post_toxic_ppm: number | null
+          post_ventilation_test_time: string | null
+          purge_wash: string | null
+          rescue_procedures: string | null
+          rescue_team: string
+          security_contact: string | null
+          status: string
+          test_supervisor: string | null
+          training_current: string | null
+          updated_at: string
+          ventilation: string | null
+          ventilation_equipment: string | null
+          ventilation_time: string | null
+          vertical_movement: string | null
+          work_description: string
+        }
+        Insert: {
+          ambulance_contact?: string | null
+          authorized_workers?: string[]
+          communication_procedure?: string | null
+          company_name: string
+          confined_space_location: string
+          confined_space_number?: string | null
+          continuous_monitoring?: string | null
+          created_at?: string
+          end_datetime?: string | null
+          entry_supervisor: string
+          equipment_checklist?: Json | null
+          fire_department_contact?: string | null
+          general_lighting?: string | null
+          guard: string
+          hot_work_permit?: string | null
+          id?: string
+          initial_dust_mg?: number | null
+          initial_flammable_percent?: number | null
+          initial_oxygen_percent?: number | null
+          initial_test_time?: string | null
+          initial_toxic_ppm?: number | null
+          isolation_completed?: boolean | null
+          issue_datetime: string
+          lockout_tagout?: string | null
+          notes?: string | null
+          post_dust_mg?: number | null
+          post_flammable_ok?: string | null
+          post_flammable_percent?: number | null
+          post_oxygen_ok?: string | null
+          post_oxygen_percent?: number | null
+          post_toxic_ppm?: number | null
+          post_ventilation_test_time?: string | null
+          purge_wash?: string | null
+          rescue_procedures?: string | null
+          rescue_team: string
+          security_contact?: string | null
+          status?: string
+          test_supervisor?: string | null
+          training_current?: string | null
+          updated_at?: string
+          ventilation?: string | null
+          ventilation_equipment?: string | null
+          ventilation_time?: string | null
+          vertical_movement?: string | null
+          work_description: string
+        }
+        Update: {
+          ambulance_contact?: string | null
+          authorized_workers?: string[]
+          communication_procedure?: string | null
+          company_name?: string
+          confined_space_location?: string
+          confined_space_number?: string | null
+          continuous_monitoring?: string | null
+          created_at?: string
+          end_datetime?: string | null
+          entry_supervisor?: string
+          equipment_checklist?: Json | null
+          fire_department_contact?: string | null
+          general_lighting?: string | null
+          guard?: string
+          hot_work_permit?: string | null
+          id?: string
+          initial_dust_mg?: number | null
+          initial_flammable_percent?: number | null
+          initial_oxygen_percent?: number | null
+          initial_test_time?: string | null
+          initial_toxic_ppm?: number | null
+          isolation_completed?: boolean | null
+          issue_datetime?: string
+          lockout_tagout?: string | null
+          notes?: string | null
+          post_dust_mg?: number | null
+          post_flammable_ok?: string | null
+          post_flammable_percent?: number | null
+          post_oxygen_ok?: string | null
+          post_oxygen_percent?: number | null
+          post_toxic_ppm?: number | null
+          post_ventilation_test_time?: string | null
+          purge_wash?: string | null
+          rescue_procedures?: string | null
+          rescue_team?: string
+          security_contact?: string | null
+          status?: string
+          test_supervisor?: string | null
+          training_current?: string | null
+          updated_at?: string
+          ventilation?: string | null
+          ventilation_equipment?: string | null
+          ventilation_time?: string | null
+          vertical_movement?: string | null
+          work_description?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

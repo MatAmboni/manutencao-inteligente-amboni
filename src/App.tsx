@@ -16,6 +16,7 @@ import UserManagement from "./pages/UserManagement";
 import Profile from "./pages/Profile";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import WorkEntryPermits from "./pages/WorkEntryPermits";
 
 const queryClient = new QueryClient();
 
@@ -84,6 +85,16 @@ const App = () => (
                 <ProtectedRoute requiredRole="admin">
                   <MainLayout>
                     <Epis />
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/work-entry-permits"
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <MainLayout>
+                    <WorkEntryPermits />
                   </MainLayout>
                 </ProtectedRoute>
               }
