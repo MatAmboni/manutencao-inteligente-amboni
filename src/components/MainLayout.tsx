@@ -13,7 +13,8 @@ import {
   LogOut,
   Users,
   ClipboardCheck,
-  User
+  User,
+  FileCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -39,6 +40,7 @@ const adminNavigation = [
   { name: "Equipamentos", href: "/equipment", icon: Wrench },
   { name: "EPIs", href: "/epis", icon: Shield },
   { name: "Análise de Riscos", href: "/risk-analysis", icon: AlertTriangle },
+  { name: "PET", href: "/work-entry-permits", icon: FileCheck },
   { name: "Usuários", href: "/users", icon: Users },
 ];
 
