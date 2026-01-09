@@ -31,14 +31,6 @@ const equipmentLabels: Record<string, string> = {
   rescue_respiratory_equipment: "Proteção Respiratória - Resgate",
   approved_electrical_equipment: "Equipamentos Elétricos Aprovados INMETRO",
 };
-  safety_belt_lifeline_workers: "Cinturão de Segurança - Trabalhadores",
-  safety_belt_lifeline_rescue: "Cinturão de Segurança - Resgate",
-  ladder: "Escada",
-  vertical_movement_equipment: "Equipamentos de Movimentação Vertical",
-  electronic_communication: "Equipamentos de Comunicação Eletrônica",
-  rescue_respiratory_equipment: "Proteção Respiratória - Resgate",
-  approved_electrical_equipment: "Equipamentos Elétricos Aprovados INMETRO",
-};
 
 const WorkEntryPermitViewDialog = ({
   open,
@@ -180,7 +172,7 @@ const WorkEntryPermitViewDialog = ({
                   <Field
                     key={key}
                     label={equipmentLabels[key] || key}
-                    value={formatNAValue(value)}
+                    value={formatNAValue(value as string)}
                   />
                 ))}
             </Section>
