@@ -178,10 +178,11 @@ const ServiceOrders = () => {
         setAdminUsers(profilesData || []);
       }
 
-      // Load technicians (employees)
+      // Load technicians (only those with user_id - linked to real users)
       const { data: techniciansData, error: techniciansError } = await supabase
         .from('technicians')
         .select('id, name, user_id')
+        .not('user_id', 'is', null)
         .order('name');
 
       if (techniciansError) throw techniciansError;

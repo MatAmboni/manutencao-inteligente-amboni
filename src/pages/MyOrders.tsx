@@ -80,10 +80,11 @@ const MyOrders = () => {
 
       setOrders(formattedOrders);
 
-      // Load technicians
+      // Load technicians - only those with user_id (linked to real users)
       const { data: techniciansData } = await supabase
         .from('technicians')
-        .select('id, name')
+        .select('id, name, user_id')
+        .not('user_id', 'is', null)
         .order('name');
       setTechnicians(techniciansData || []);
     } catch (error) {
