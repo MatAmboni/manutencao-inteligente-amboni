@@ -305,18 +305,21 @@ export type Database = {
           created_at: string | null
           id: string
           name: string
+          sector: string | null
           user_id: string | null
         }
         Insert: {
           created_at?: string | null
           id?: string
           name: string
+          sector?: string | null
           user_id?: string | null
         }
         Update: {
           created_at?: string | null
           id?: string
           name?: string
+          sector?: string | null
           user_id?: string | null
         }
         Relationships: []
@@ -488,6 +491,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_user_sector: { Args: { _user_id: string }; Returns: string }
       get_user_technician_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
