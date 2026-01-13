@@ -21,6 +21,16 @@ const createUserSchema = z.object({
   fullName: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
   password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
   role: z.enum(['admin', 'employee']),
+  sector: z.string().optional(),
+}).refine((data) => {
+  // Sector is required only for employees
+  if (data.role === 'employee' && !data.sector) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Setor é obrigatório para funcionários",
+  path: ["sector"],
 });
 
 const passwordSchema = z.object({
@@ -52,6 +62,7 @@ const UserManagement = () => {
     fullName: '',
     password: '',
     role: 'employee' as 'admin' | 'employee',
+    sector: '' as string,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -85,6 +96,7 @@ const UserManagement = () => {
           fullName: userData.fullName,
           password: userData.password,
           role: userData.role,
+          sector: userData.role === 'employee' ? userData.sector : undefined,
         },
       });
       if (error) throw error;
@@ -95,7 +107,7 @@ const UserManagement = () => {
       toast({ title: 'Usuário criado com sucesso!' });
       queryClient.invalidateQueries({ queryKey: ['users'] });
       setIsDialogOpen(false);
-      setFormData({ username: '', fullName: '', password: '', role: 'employee' });
+      setFormData({ username: '', fullName: '', password: '', role: 'employee', sector: '' });
     },
     onError: (error: Error) => {
       toast({
@@ -390,7 +402,7 @@ const UserManagement = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="role">Função</Label>
-                <Select value={formData.role} onValueChange={(value: 'admin' | 'employee') => setFormData({ ...formData, role: value })}>
+                <Select value={formData.role} onValueChange={(value: 'admin' | 'employee') => setFormData({ ...formData, role: value, sector: value === 'admin' ? '' : formData.sector })}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -401,6 +413,21 @@ const UserManagement = () => {
                 </Select>
                 {errors.role && <p className="text-sm text-destructive">{errors.role}</p>}
               </div>
+              {formData.role === 'employee' && (
+                <div className="space-y-2">
+                  <Label htmlFor="sector">Setor</Label>
+                  <Select value={formData.sector} onValueChange={(value) => setFormData({ ...formData, sector: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o setor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Elétrico">Elétrico</SelectItem>
+                      <SelectItem value="Mecânico">Mecânico</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {errors.sector && <p className="text-sm text-destructive">{errors.sector}</p>}
+                </div>
+              )}
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancelar

@@ -55,7 +55,7 @@ serve(async (req) => {
       })
     }
 
-    const { action, username, password, fullName, role, userId, newPassword } = await req.json()
+    const { action, username, password, fullName, role, userId, newPassword, sector } = await req.json()
 
     if (action === 'create') {
       // Create user with username as email format
@@ -77,6 +77,23 @@ serve(async (req) => {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         })
+      }
+
+      // If it's an employee, update the technician's sector
+      if (role === 'employee' && sector && newUser?.user?.id) {
+        // Wait a bit for the trigger to create the technician record
+        await new Promise(resolve => setTimeout(resolve, 500))
+        
+        const { error: updateError } = await supabaseAdmin
+          .from('technicians')
+          .update({ sector: sector })
+          .eq('user_id', newUser.user.id)
+        
+        if (updateError) {
+          console.error('Error updating technician sector:', updateError)
+        } else {
+          console.log('Technician sector updated to:', sector)
+        }
       }
 
       return new Response(JSON.stringify({ success: true, user: newUser }), {
