@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { 
   LayoutDashboard, 
@@ -29,12 +29,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
 
 interface MainLayoutProps {
   children: React.ReactNode;
 }
 
-const adminNavigation = [
+interface NavigationItem {
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  showBadge?: boolean;
+}
+
+const adminNavigation: NavigationItem[] = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Ordens de Serviço", href: "/service-orders", icon: ClipboardList },
   { name: "Equipamentos", href: "/equipment", icon: Wrench },
@@ -44,17 +52,56 @@ const adminNavigation = [
   { name: "Usuários", href: "/users", icon: Users },
 ];
 
-const employeeNavigation = [
+const employeeNavigation: NavigationItem[] = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Minhas Ordens", href: "/my-orders", icon: ClipboardCheck },
+  { name: "Minhas Ordens", href: "/my-orders", icon: ClipboardCheck, showBadge: true },
 ];
 
 const MainLayout = ({ children }: MainLayoutProps) => {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+  const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
   const { user, role, isAdmin, signOut } = useAuth();
 
   const navigation = isAdmin ? adminNavigation : employeeNavigation;
+
+  // Fetch pending orders count for employees
+  useEffect(() => {
+    if (!user || isAdmin) return;
+
+    const fetchPendingOrdersCount = async () => {
+      const { count, error } = await supabase
+        .from('service_orders')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'Pendente');
+
+      if (!error && count !== null) {
+        setPendingOrdersCount(count);
+      }
+    };
+
+    fetchPendingOrdersCount();
+
+    // Subscribe to realtime changes
+    const channel = supabase
+      .channel('pending-orders-count')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'service_orders',
+        },
+        () => {
+          fetchPendingOrdersCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, isAdmin]);
 
   const getUserDisplayName = () => {
     if (user?.user_metadata?.username) {
@@ -77,20 +124,38 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     <TooltipProvider delayDuration={0}>
       {navigation.map((item) => {
         const isActive = location.pathname === item.href;
+        const showCounter = item.showBadge && pendingOrdersCount > 0;
+        
         const linkContent = (
           <Link
             key={item.name}
             to={item.href}
             className={cn(
-              "flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors",
+              "flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors relative",
               isActive
                 ? "bg-sidebar-accent text-sidebar-accent-foreground"
                 : "text-sidebar-foreground hover:bg-sidebar-accent/50",
               !showText && "justify-center"
             )}
           >
-            <item.icon className="h-5 w-5 flex-shrink-0" />
-            {showText && item.name}
+            <div className="relative">
+              <item.icon className="h-5 w-5 flex-shrink-0" />
+              {showCounter && !showText && (
+                <span className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                  {pendingOrdersCount > 99 ? '99+' : pendingOrdersCount}
+                </span>
+              )}
+            </div>
+            {showText && (
+              <>
+                <span className="flex-1">{item.name}</span>
+                {showCounter && (
+                  <Badge variant="destructive" className="ml-auto">
+                    {pendingOrdersCount > 99 ? '99+' : pendingOrdersCount}
+                  </Badge>
+                )}
+              </>
+            )}
           </Link>
         );
 
@@ -100,8 +165,13 @@ const MainLayout = ({ children }: MainLayoutProps) => {
               <TooltipTrigger asChild>
                 {linkContent}
               </TooltipTrigger>
-              <TooltipContent side="right">
+              <TooltipContent side="right" className="flex items-center gap-2">
                 {item.name}
+                {showCounter && (
+                  <Badge variant="destructive" className="ml-1">
+                    {pendingOrdersCount}
+                  </Badge>
+                )}
               </TooltipContent>
             </Tooltip>
           );
