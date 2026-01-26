@@ -13,7 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Plus, Users, Trash2, AlertTriangle, KeyRound } from 'lucide-react';
+import { Loader2, Plus, Users, Trash2, AlertTriangle, KeyRound, Settings2 } from 'lucide-react';
 import { z } from 'zod';
 
 const createUserSchema = z.object({
@@ -48,6 +48,7 @@ interface User {
   email: string;
   created_at: string;
   role: 'admin' | 'employee';
+  sector?: string;
 }
 
 const UserManagement = () => {
@@ -76,6 +77,11 @@ const UserManagement = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
+  // Sector edit state
+  const [sectorDialogOpen, setSectorDialogOpen] = useState(false);
+  const [userToEditSector, setUserToEditSector] = useState<User | null>(null);
+  const [selectedSector, setSelectedSector] = useState<string>('');
+
   const { data: users, isLoading } = useQuery({
     queryKey: ['users'],
     queryFn: async () => {
@@ -83,7 +89,22 @@ const UserManagement = () => {
         body: { action: 'list' },
       });
       if (error) throw error;
-      return data.users as User[];
+
+      // Fetch technician sectors for employees
+      const { data: technicians } = await supabase
+        .from('technicians')
+        .select('user_id, sector')
+        .not('user_id', 'is', null);
+
+      const sectorByUserId = (technicians || []).reduce((acc, t) => {
+        if (t.user_id) acc[t.user_id] = t.sector;
+        return acc;
+      }, {} as Record<string, string | null>);
+
+      return (data.users as User[]).map(user => ({
+        ...user,
+        sector: user.role === 'employee' ? sectorByUserId[user.id] || undefined : undefined,
+      }));
     },
   });
 
@@ -173,7 +194,30 @@ const UserManagement = () => {
     },
   });
 
-  const handleSeedAdmins = async () => {
+  const updateSectorMutation = useMutation({
+    mutationFn: async ({ userId, sector }: { userId: string; sector: string }) => {
+      const { error } = await supabase
+        .from('technicians')
+        .update({ sector })
+        .eq('user_id', userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: 'Setor atualizado com sucesso!' });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      setSectorDialogOpen(false);
+      setUserToEditSector(null);
+      setSelectedSector('');
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Erro ao atualizar setor',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
     setIsSeeding(true);
     try {
       const { data, error } = await supabase.functions.invoke('seed-admins');
@@ -253,6 +297,19 @@ const UserManagement = () => {
     }
   };
 
+  const openSectorDialog = (user: User) => {
+    setUserToEditSector(user);
+    setSelectedSector(user.sector || '');
+    setSectorDialogOpen(true);
+  };
+
+  const handleSectorSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (userToEditSector && selectedSector) {
+      updateSectorMutation.mutate({ userId: userToEditSector.id, sector: selectedSector });
+    }
+  };
+
   return (
     <MainLayout>
       <div className="space-y-6">
@@ -308,6 +365,7 @@ const UserManagement = () => {
                     <TableHead>Usuário</TableHead>
                     <TableHead>Nome</TableHead>
                     <TableHead>Função</TableHead>
+                    <TableHead>Setor</TableHead>
                     <TableHead>Criado em</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
@@ -323,14 +381,32 @@ const UserManagement = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>
+                        {user.role === 'employee' ? (
+                          <Badge variant="outline">{user.sector || 'Não definido'}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
                         {new Date(user.created_at).toLocaleDateString('pt-BR')}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          {user.role === 'employee' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openSectorDialog(user)}
+                              title="Alterar setor"
+                            >
+                              <Settings2 className="h-4 w-4" />
+                            </Button>
+                          )}
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => openPasswordDialog(user)}
+                            title="Alterar senha"
                           >
                             <KeyRound className="h-4 w-4" />
                           </Button>
@@ -340,6 +416,7 @@ const UserManagement = () => {
                             onClick={() => openDeleteDialog(user)}
                             disabled={user.id === currentUser?.id}
                             className="text-destructive hover:text-destructive"
+                            title="Remover usuário"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -527,6 +604,47 @@ const UserManagement = () => {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Sector Edit Dialog */}
+        <Dialog open={sectorDialogOpen} onOpenChange={setSectorDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Alterar Setor</DialogTitle>
+              <DialogDescription>
+                Selecione o setor para {userToEditSector?.full_name}
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleSectorSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="sector">Setor</Label>
+                <Select value={selectedSector} onValueChange={setSelectedSector}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o setor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Elétrico">Elétrico</SelectItem>
+                    <SelectItem value="Mecânico">Mecânico</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setSectorDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={updateSectorMutation.isPending || !selectedSector}>
+                  {updateSectorMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    'Salvar'
+                  )}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
     </MainLayout>
   );
