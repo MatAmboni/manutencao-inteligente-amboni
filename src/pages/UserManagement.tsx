@@ -218,6 +218,7 @@ const UserManagement = () => {
     },
   });
 
+  const handleSeedAdmins = async () => {
     setIsSeeding(true);
     try {
       const { data, error } = await supabase.functions.invoke('seed-admins');
